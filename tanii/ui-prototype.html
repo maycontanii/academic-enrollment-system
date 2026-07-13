@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Academic Enrollment — UI Prototype</title>
+<style>
+  /* Visual standard: Material Design (Vuetify) look — Google-style layout,
+     grey + white low-fidelity palette. Hand-coded CSS, no runtime, self-contained. */
+  * { box-sizing: border-box; }
+  body { font-family:"Roboto", system-ui, "Segoe UI", Arial, sans-serif; background:#fafafa; margin:0; color:#212121; }
+  .proto-note { background:#eeeeee; border-bottom:1px solid #e0e0e0; font-size:12px; color:#616161; text-align:center; padding:6px; letter-spacing:.02em; }
+
+  /* Pure-CSS navigation: hidden radios + labels. No JS, no hash. */
+  .nav { position:absolute; left:-9999px; }
+  .screen { display:none; max-width:760px; margin:24px auto; background:#fff; border-radius:4px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.12), 0 1px 2px rgba(0,0,0,.24); }
+
+  #nav-login:checked        ~ .s-login,
+  #nav-admin-home:checked   ~ .s-admin-home,
+  #nav-students-list:checked ~ .s-students-list,
+  #nav-student-form:checked ~ .s-student-form,
+  #nav-courses-list:checked ~ .s-courses-list,
+  #nav-course-form:checked  ~ .s-course-form,
+  #nav-subjects-list:checked ~ .s-subjects-list,
+  #nav-subject-form:checked ~ .s-subject-form,
+  #nav-classes-list:checked ~ .s-classes-list,
+  #nav-class-form:checked   ~ .s-class-form,
+  #nav-enroll-by-class:checked ~ .s-enroll-by-class,
+  #nav-enroll-by-student:checked ~ .s-enroll-by-student,
+  #nav-users-access:checked ~ .s-users-access,
+  #nav-browse:checked       ~ .s-browse,
+  #nav-cart:checked         ~ .s-cart,
+  #nav-checkout:checked     ~ .s-checkout,
+  #nav-my-enrollments:checked ~ .s-my-enrollments { display:block; }
+
+  .topbar { background:#616161; color:#fff; padding:0 16px; height:56px; display:flex; justify-content:space-between; align-items:center; font-size:15px; box-shadow:0 2px 4px rgba(0,0,0,.2); }
+  .topbar .brand { font-weight:500; color:#fff; letter-spacing:.02em; cursor:pointer; }
+  .topbar .btn.link { color:#eeeeee; }
+  .body { padding:20px; }
+  h1 { font-size:20px; font-weight:500; margin:0 0 16px; }
+  h2 { font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:#9e9e9e; margin:20px 0 8px; font-weight:600; }
+  .btn { display:inline-block; padding:8px 16px; background:#616161; color:#fff; border-radius:4px; font-size:13px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; cursor:pointer; margin:4px 8px 4px 0; box-shadow:0 1px 2px rgba(0,0,0,.2); user-select:none; }
+  .btn:hover { background:#525252; }
+  .btn.secondary { background:#fff; color:#616161; border:1px solid #bdbdbd; box-shadow:none; }
+  .btn.secondary:hover { background:#f5f5f5; }
+  .btn.danger { background:#fff; color:#616161; border:1px solid #bdbdbd; box-shadow:none; }
+  .btn.link { background:none; color:#616161; padding:6px 0; margin:0; box-shadow:none; text-transform:none; letter-spacing:0; font-weight:500; }
+  .btn.sm { padding:3px 10px; font-size:11px; box-shadow:none; }
+  label.field { font-size:12px; color:#757575; display:block; margin-top:12px; }
+  input, select { width:100%; padding:9px 10px; margin-top:4px; border:1px solid #e0e0e0; border-bottom:1px solid #9e9e9e; background:#f5f5f5; border-radius:4px 4px 0 0; font-size:14px; }
+  input:focus, select:focus { outline:none; border-bottom:2px solid #616161; }
+  .search { max-width:340px; }
+  table { width:100%; border-collapse:collapse; font-size:14px; margin-top:8px; }
+  th, td { text-align:left; padding:10px 8px; border-bottom:1px solid #eeeeee; }
+  th { color:#9e9e9e; font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:.05em; }
+  .muted { color:#9e9e9e; font-size:13px; }
+  .err { color:#616161; font-size:13px; margin-top:12px; border-left:3px solid #bdbdbd; padding-left:8px; }
+  .ok { color:#616161; font-size:13px; margin-top:12px; border-left:3px solid #9e9e9e; padding-left:8px; }
+  .rowline { display:flex; justify-content:space-between; align-items:center; gap:12px; }
+  .badge { padding:3px 10px; border-radius:12px; font-size:11px; font-weight:600; letter-spacing:.03em; border:1px solid #e0e0e0; }
+  .b-pending { background:#f5f5f5; color:#757575; }
+  .b-processing { background:#eeeeee; color:#616161; }
+  .b-confirmed { background:#e0e0e0; color:#212121; }
+  .b-rejected { background:#fff; color:#9e9e9e; border-style:dashed; }
+  .full { color:#616161; font-size:13px; }
+  .free { color:#424242; font-size:13px; }
+  hr { border:none; border-top:1px solid #eeeeee; margin:18px 0; }
+</style>
+</head>
+<body>
+<div class="proto-note">Low-fidelity, non-functional navigation prototype — derived from ui-skeleton.md. Buttons navigate; inputs do nothing.</div>
+
+<!-- navigation state (one radio per screen; login checked by default) -->
+<input class="nav" type="radio" name="nav" id="nav-login" checked>
+<input class="nav" type="radio" name="nav" id="nav-admin-home">
+<input class="nav" type="radio" name="nav" id="nav-students-list">
+<input class="nav" type="radio" name="nav" id="nav-student-form">
+<input class="nav" type="radio" name="nav" id="nav-courses-list">
+<input class="nav" type="radio" name="nav" id="nav-course-form">
+<input class="nav" type="radio" name="nav" id="nav-subjects-list">
+<input class="nav" type="radio" name="nav" id="nav-subject-form">
+<input class="nav" type="radio" name="nav" id="nav-classes-list">
+<input class="nav" type="radio" name="nav" id="nav-class-form">
+<input class="nav" type="radio" name="nav" id="nav-enroll-by-class">
+<input class="nav" type="radio" name="nav" id="nav-enroll-by-student">
+<input class="nav" type="radio" name="nav" id="nav-users-access">
+<input class="nav" type="radio" name="nav" id="nav-browse">
+<input class="nav" type="radio" name="nav" id="nav-cart">
+<input class="nav" type="radio" name="nav" id="nav-checkout">
+<input class="nav" type="radio" name="nav" id="nav-my-enrollments">
+
+<!-- 1. LOGIN -->
+<section class="screen s-login">
+  <div class="topbar"><span class="brand">Academic Enrollment</span></div>
+  <div class="body">
+    <h1>Sign in</h1>
+    <label class="field">Username / email *<input placeholder="you@example.com"></label>
+    <label class="field">Password *<input type="password" placeholder="••••••••"></label>
+    <p class="muted">Prototype: choose a role to continue.</p>
+    <label class="btn" for="nav-admin-home">Sign in as Administrator</label>
+    <label class="btn" for="nav-browse">Sign in as Student</label>
+    <div class="err">Invalid credentials</div>
+  </div>
+</section>
+
+<!-- 2. ADMIN HOME -->
+<section class="screen s-admin-home">
+  <div class="topbar"><label class="brand" for="nav-admin-home">Academic Enrollment</label><span>admin ▾ &nbsp; <label class="btn link" for="nav-login">Sign out</label></span></div>
+  <div class="body">
+    <h1>Admin home</h1>
+    <h2>Manage</h2>
+    <label class="btn secondary" for="nav-students-list">Students</label>
+    <label class="btn secondary" for="nav-courses-list">Courses</label>
+    <label class="btn secondary" for="nav-subjects-list">Subjects</label>
+    <label class="btn secondary" for="nav-classes-list">Classes</label>
+    <h2>Consult</h2>
+    <label class="btn secondary" for="nav-enroll-by-class">Enrollments by class</label>
+    <label class="btn secondary" for="nav-enroll-by-student">Enrollments by student</label>
+    <h2>Access</h2>
+    <label class="btn secondary" for="nav-users-access">Users &amp; access</label>
+  </div>
+</section>
+
+<!-- 3. STUDENTS LIST -->
+<section class="screen s-students-list">
+  <div class="topbar"><label class="brand" for="nav-admin-home">Academic Enrollment</label><span>admin ▾ &nbsp; <label class="btn link" for="nav-login">Sign out</label></span></div>
+  <div class="body">
+    <div class="rowline"><h1>Students</h1><label class="btn sm" for="nav-student-form">+ New student</label></div>
+    <input class="search" placeholder="🔍 name or email">
+    <table>
+      <tr><th>Name</th><th>Email</th><th>Document</th><th></th></tr>
+      <tr><td>Ana Silva</td><td>ana@x.com</td><td>123</td><td><label class="btn sm secondary" for="nav-student-form">✏</label> <label class="btn sm danger" for="nav-students-list">🗑</label></td></tr>
+      <tr><td>Bruno Reis</td><td>bruno@x.com</td><td>456</td><td><label class="btn sm secondary" for="nav-student-form">✏</label> <label class="btn sm danger" for="nav-students-list">🗑</label></td></tr>
+    </table>
+    <p class="muted">◀ 1 2 ▶</p>
+    <label class="btn link" for="nav-admin-home">← Back</label>
+  </div>
+</section>
+
+<!-- 4. STUDENT FORM -->
+<section class="screen s-student-form">
+  <div class="topbar"><label class="brand" for="nav-admin-home">Academic Enrollment</label><span>admin ▾ &nbsp; <label class="btn link" for="nav-login">Sign out</label></span></div>
+  <div class="body">
+    <h1>New / edit student</h1>
+    <label class="field">Name *<input placeholder="Ana Silva"></label>
+    <label class="field">Email *<input placeholder="ana@x.com"></label>
+    <label class="field">Document<input></label>
+    <div class="err">Email already registered</div>
+    <hr>
+    <label class="btn" for="nav-students-list">Save</label>
+    <label class="btn secondary" for="nav-students-list">Cancel</label>
+  </div>
+</section>
+
+<!-- 5. COURSES LIST -->
+<section class="screen s-courses-list">
+  <div class="topbar"><label class="brand" for="nav-admin-home">Academic Enrollment</label><span>admin ▾ &nbsp; <label class="btn link" for="nav-login">Sign out</label></span></div>
+  <div class="body">
+    <div class="rowline"><h1>Courses</h1><label class="btn sm" for="nav-course-form">+ New course</label></div>
+    <table>
+      <tr><th>Name</th><th>Description</th><th>Subjects</th><th></th></tr>
+      <tr><td>Computer Science</td><td class="muted">…</td><td>6</td><td><label class="btn sm secondary" for="nav-course-form">✏</label> <label class="btn sm danger" for="nav-courses-list">🗑</label></td></tr>
+    </table>
+    <label class="btn link" for="nav-admin-home">← Back</label>
+  </div>
+</section>
+
+<!-- 6. COURSE FORM -->
+<section class="screen s-course-form">
+  <div class="topbar"><label class="brand" for="nav-admin-home">Academic Enrollment</label><span>admin ▾ &nbsp; <label class="btn link" for="nav-login">Sign out</label></span></div>
+  <div class="body">
+    <h1>New / edit course</h1>
+    <label class="field">Name *<input placeholder="Computer Science"></label>
+    <label class="field">Description<input></label>
+    <hr>
+    <label class="btn" for="nav-courses-list">Save</label>
+    <label class="btn secondary" for="nav-courses-list">Cancel</label>
+  </div>
+</section>
+
+<!-- 7. SUBJECTS LIST -->
+<section class="screen s-subjects-list">
+  <div class="topbar"><label class="brand" for="nav-admin-home">Academic Enrollment</label><span>admin ▾ &nbsp; <label class="btn link" for="nav-login">Sign out</label></span></div>
+  <div class="body">
+    <div class="rowline"><h1>Subjects</h1><label class="btn sm" for="nav-subject-form">+ New subject</label></div>
+    <label class="field">Course <select><option>All</option><option>Computer Science</option></select></label>
+    <table>
+      <tr><th>Subject</th><th>Course</th><th></th></tr>
+      <tr><td>Algorithms</td><td>Computer Science</td><td><label class="btn sm secondary" for="nav-subject-form">✏</label> <label class="btn sm danger" for="nav-subjects-list">🗑</label></td></tr>
+    </table>
+    <label class="btn link" for="nav-admin-home">← Back</label>
+  </div>
+</section>
+
+<!-- 8. SUBJECT FORM -->
+<section class="screen s-subject-form">
+  <div class="topbar"><label class="brand" for="nav-admin-home">Academic Enrollment</label><span>admin ▾ &nbsp; <label class="btn link" for="nav-login">Sign out</label></span></div>
+  <div class="body">
+    <h1>New / edit subject</h1>
+    <label class="field">Name *<input placeholder="Algorithms"></label>
+    <label class="field">Course *<select><option>Computer Science</option></select></label>
+    <label class="field">Description<input></label>
+    <hr>
+    <label class="btn" for="nav-subjects-list">Save</label>
+    <label class="btn secondary" for="nav-subjects-list">Cancel</label>
+  </div>
+</section>
+
+<!-- 9. CLASSES LIST -->
+<section class="screen s-classes-list">
+  <div class="topbar"><label class="brand" for="nav-admin-home">Academic Enrollment</label><span>admin ▾ &nbsp; <label class="btn link" for="nav-login">Sign out</label></span></div>
+  <div class="body">
+    <div class="rowline"><h1>Classes</h1><label class="btn sm" for="nav-class-form">+ New class</label></div>
+    <label class="field">Filters <select><option>All subjects</option></select> <select><option>All status</option><option>Open</option><option>Closed</option></select></label>
+    <table>
+      <tr><th>Class</th><th>Subject</th><th>Seats</th><th>Status</th><th></th></tr>
+      <tr><td>2026.1 - A</td><td>Algorithms</td><td>3/30</td><td>Open</td><td><label class="btn sm secondary" for="nav-classes-list">Close</label> <label class="btn sm secondary" for="nav-class-form">✏</label></td></tr>
+      <tr><td>2026.1 - B</td><td>Algorithms</td><td>30/30</td><td>Closed</td><td><label class="btn sm secondary" for="nav-classes-list">Open</label> <label class="btn sm secondary" for="nav-class-form">✏</label></td></tr>
+    </table>
+    <label class="btn link" for="nav-admin-home">← Back</label>
+  </div>
+</section>
+
+<!-- 10. CLASS FORM -->
+<section class="screen s-class-form">
+  <div class="topbar"><label class="brand" for="nav-admin-home">Academic Enrollment</label><span>admin ▾ &nbsp; <label class="btn link" for="nav-login">Sign out</label></span></div>
+  <div class="body">
+    <h1>New / edit class</h1>
+    <label class="field">Subject *<select><option>Algorithms</option></select></label>
+    <label class="field">Label *<input placeholder="2026.1 - A"></label>
+    <label class="field">Seat limit *<input type="number" value="30"></label>
+    <label class="field">Status *<select><option>Closed</option><option>Open</option></select></label>
+    <div class="err">Seat limit must be greater than zero</div>
+    <hr>
+    <label class="btn" for="nav-classes-list">Save</label>
+    <label class="btn secondary" for="nav-classes-list">Cancel</label>
+  </div>
+</section>
+
+<!-- 11. ENROLLMENTS BY CLASS -->
+<section class="screen s-enroll-by-class">
+  <div class="topbar"><label class="brand" for="nav-admin-home">Academic Enrollment</label><span>admin ▾ &nbsp; <label class="btn link" for="nav-login">Sign out</label></span></div>
+  <div class="body">
+    <div class="rowline"><h1>Enrollments by class</h1><label class="btn sm" for="nav-enroll-by-class">+ Enroll student</label></div>
+    <label class="field">Class <select><option>2026.1 - A</option></select></label>
+    <p class="muted">Seats: <b>3</b> used · <b>27</b> free · limit 30</p>
+    <table>
+      <tr><th>Student</th><th>Status</th><th>Date</th><th></th></tr>
+      <tr><td>Ana Silva</td><td><span class="badge b-confirmed">CONFIRMED</span></td><td>07/08</td><td><label class="btn sm danger" for="nav-enroll-by-class">Cancel</label></td></tr>
+      <tr><td>Bruno Reis</td><td><span class="badge b-processing">PROCESSING</span></td><td>07/08</td><td></td></tr>
+      <tr><td>Carla Melo</td><td><span class="badge b-rejected">REJECTED</span></td><td>07/08</td><td></td></tr>
+    </table>
+    <label class="btn link" for="nav-admin-home">← Back</label>
+  </div>
+</section>
+
+<!-- 12. ENROLLMENTS BY STUDENT -->
+<section class="screen s-enroll-by-student">
+  <div class="topbar"><label class="brand" for="nav-admin-home">Academic Enrollment</label><span>admin ▾ &nbsp; <label class="btn link" for="nav-login">Sign out</label></span></div>
+  <div class="body">
+    <h1>Enrollments by student</h1>
+    <label class="field">Student <select><option>Ana Silva</option></select></label>
+    <table>
+      <tr><th>Class</th><th>Subject</th><th>Status</th><th></th></tr>
+      <tr><td>2026.1 - A</td><td>Algorithms</td><td><span class="badge b-confirmed">CONFIRMED</span></td><td><label class="btn sm danger" for="nav-enroll-by-student">Cancel</label></td></tr>
+    </table>
+    <label class="btn link" for="nav-admin-home">← Back</label>
+  </div>
+</section>
+
+<!-- 13. USERS & ACCESS -->
+<section class="screen s-users-access">
+  <div class="topbar"><label class="brand" for="nav-admin-home">Academic Enrollment</label><span>admin ▾ &nbsp; <label class="btn link" for="nav-login">Sign out</label></span></div>
+  <div class="body">
+    <div class="rowline"><h1>Users &amp; access</h1><label class="btn sm" for="nav-users-access">+ Add user</label></div>
+    <input class="search" placeholder="🔍 search">
+    <table>
+      <tr><th>User</th><th>Role</th><th>Status</th><th></th></tr>
+      <tr><td>ana@x.com</td><td>Student</td><td>active</td><td><label class="btn sm secondary" for="nav-users-access">Role ▾</label> <label class="btn sm danger" for="nav-users-access">Deactivate</label></td></tr>
+      <tr><td>admin@x.com</td><td>Administrator</td><td>active</td><td><label class="btn sm secondary" for="nav-users-access">Role ▾</label></td></tr>
+    </table>
+    <label class="btn link" for="nav-admin-home">← Back</label>
+  </div>
+</section>
+
+<!-- 14. BROWSE & SELECT (student) -->
+<section class="screen s-browse">
+  <div class="topbar"><label class="brand" for="nav-browse">Academic Enrollment</label><span>student ▾ &nbsp; <label class="btn link" for="nav-cart">Cart (2)</label> &nbsp; <label class="btn link" for="nav-login">Sign out</label></span></div>
+  <div class="body">
+    <h1>Browse classes</h1>
+    <label class="field">Course *<select><option>Computer Science</option></select></label>
+    <label class="field">Subject *<select><option>Algorithms</option></select></label>
+    <h2>Open classes</h2>
+    <table>
+      <tr><td>2026.1 - A</td><td class="free">Seats free: 3</td><td><label class="btn sm" for="nav-cart">Add</label></td></tr>
+      <tr><td>2026.1 - B</td><td class="full">Seats free: 0</td><td><span class="muted">Full</span></td></tr>
+    </table>
+    <div class="err">You already have an active enrollment in this class</div>
+    <hr>
+    <label class="btn secondary" for="nav-cart">Go to cart</label>
+    <label class="btn secondary" for="nav-my-enrollments">My enrollments</label>
+  </div>
+</section>
+
+<!-- 15. CART (student) -->
+<section class="screen s-cart">
+  <div class="topbar"><label class="brand" for="nav-browse">Academic Enrollment</label><span>student ▾ &nbsp; <label class="btn link" for="nav-cart">Cart (2)</label> &nbsp; <label class="btn link" for="nav-login">Sign out</label></span></div>
+  <div class="body">
+    <h1>Cart — PENDING</h1>
+    <table>
+      <tr><th>Class</th><th>Subject</th><th>Status</th><th></th></tr>
+      <tr><td>2026.1 - A</td><td>Algorithms</td><td><span class="badge b-pending">PENDING</span></td><td><label class="btn sm danger" for="nav-cart">Remove</label></td></tr>
+      <tr><td>2026.2 - C</td><td>Networks</td><td><span class="badge b-pending">PENDING</span></td><td><label class="btn sm danger" for="nav-cart">Remove</label></td></tr>
+    </table>
+    <p class="full">! 2026.1 - A is now full — you may lose it at checkout</p>
+    <hr>
+    <label class="btn secondary" for="nav-browse">Keep browsing</label>
+    <label class="btn" for="nav-checkout">Checkout</label>
+  </div>
+</section>
+
+<!-- 16. CHECKOUT (student) -->
+<section class="screen s-checkout">
+  <div class="topbar"><label class="brand" for="nav-browse">Academic Enrollment</label><span>student ▾ &nbsp; <label class="btn link" for="nav-login">Sign out</label></span></div>
+  <div class="body">
+    <h1>Review &amp; confirm</h1>
+    <ul>
+      <li>2026.1 - A &nbsp;<span class="muted">(Algorithms)</span></li>
+      <li>2026.2 - C &nbsp;<span class="muted">(Networks)</span></li>
+    </ul>
+    <div class="ok">Request received — we're finalizing your enrollment</div>
+    <hr>
+    <label class="btn secondary" for="nav-cart">Back to cart</label>
+    <label class="btn" for="nav-my-enrollments">Confirm</label>
+  </div>
+</section>
+
+<!-- 17. MY ENROLLMENTS (student) -->
+<section class="screen s-my-enrollments">
+  <div class="topbar"><label class="brand" for="nav-browse">Academic Enrollment</label><span>student ▾ &nbsp; <label class="btn link" for="nav-login">Sign out</label></span></div>
+  <div class="body">
+    <div class="rowline"><h1>My enrollments</h1><label class="btn sm secondary" for="nav-my-enrollments">Refresh</label></div>
+    <table>
+      <tr><th>Class</th><th>Subject</th><th>Status</th><th></th></tr>
+      <tr><td>2026.1 - A</td><td>Algorithms</td><td><span class="badge b-processing">PROCESSING</span> <span class="muted">Finalizing…</span></td><td><label class="btn sm danger" for="nav-my-enrollments">Cancel</label></td></tr>
+      <tr><td>2026.2 - C</td><td>Networks</td><td><span class="badge b-confirmed">CONFIRMED</span> <span class="muted">Seat secured</span></td><td><label class="btn sm danger" for="nav-my-enrollments">Cancel</label></td></tr>
+      <tr><td>2025.2 - D</td><td>Databases</td><td><span class="badge b-rejected">REJECTED</span> <span class="muted">No seats were available</span></td><td></td></tr>
+    </table>
+    <hr>
+    <label class="btn secondary" for="nav-browse">Browse more</label>
+  </div>
+</section>
+
+</body>
+</html>
