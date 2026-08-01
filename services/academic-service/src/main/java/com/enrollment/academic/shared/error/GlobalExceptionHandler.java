@@ -1,8 +1,5 @@
 package com.enrollment.academic.shared.error;
 
-import com.enrollment.academic.shared.error.ConflictException;
-import com.enrollment.academic.shared.error.NotFoundException;
-import com.enrollment.academic.shared.error.ErrorResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -34,5 +31,11 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.CONFLICT)
     public ErrorResponse onConflict(ConflictException ex) {
         return ErrorResponse.of("conflict", ex.getCode(), ex.getMessage(), List.of());
+    }
+
+    @ExceptionHandler(BusinessException.class)
+    @ResponseStatus(HttpStatus.UNPROCESSABLE_ENTITY)
+    public ErrorResponse onBusiness(BusinessException ex) {
+        return ErrorResponse.of("business_error", ex.getCode(), ex.getMessage(), List.of());
     }
 }
