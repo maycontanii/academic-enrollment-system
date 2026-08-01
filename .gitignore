@@ -27,3 +27,6 @@ dist/
 # --- Logs ---
 *.log
 logs/
+
+# --- Maven (machine-local pointer to the private ~/.m2-private settings) ---
+.mvn/maven.config
