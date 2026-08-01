@@ -1,0 +1,95 @@
+{
+  "realm": "academic-enrollment",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "roles": {
+    "realm": [
+      { "name": "adm_create_student" },
+      { "name": "adm_read_student" },
+      { "name": "adm_update_student" },
+      { "name": "adm_delete_student" },
+      { "name": "adm_create_course" },
+      { "name": "adm_read_course" },
+      { "name": "adm_update_course" },
+      { "name": "adm_delete_course" },
+      { "name": "adm_create_subject" },
+      { "name": "adm_read_subject" },
+      { "name": "adm_update_subject" },
+      { "name": "adm_delete_subject" },
+      { "name": "adm_create_class" },
+      { "name": "adm_read_class" },
+      { "name": "adm_update_class" },
+      { "name": "adm_delete_class" },
+      { "name": "adm_open_class" },
+      { "name": "adm_close_class" },
+      { "name": "adm_create_enrollment" },
+      { "name": "adm_confirm_enrollment" },
+      { "name": "adm_cancel_enrollment" },
+      { "name": "adm_read_enrollment" },
+      { "name": "student_browse_class" },
+      { "name": "student_create_enrollment" },
+      { "name": "student_confirm_enrollment" },
+      { "name": "student_cancel_enrollment" },
+      { "name": "student_read_enrollment" },
+      {
+        "name": "ADMIN",
+        "composite": true,
+        "composites": {
+          "realm": [
+            "adm_create_student", "adm_read_student", "adm_update_student", "adm_delete_student",
+            "adm_create_course", "adm_read_course", "adm_update_course", "adm_delete_course",
+            "adm_create_subject", "adm_read_subject", "adm_update_subject", "adm_delete_subject",
+            "adm_create_class", "adm_read_class", "adm_update_class", "adm_delete_class",
+            "adm_open_class", "adm_close_class",
+            "adm_create_enrollment", "adm_confirm_enrollment", "adm_cancel_enrollment", "adm_read_enrollment"
+          ]
+        }
+      },
+      {
+        "name": "STUDENT",
+        "composite": true,
+        "composites": {
+          "realm": [
+            "student_browse_class", "student_create_enrollment", "student_confirm_enrollment",
+            "student_cancel_enrollment", "student_read_enrollment"
+          ]
+        }
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "academic-web",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "redirectUris": ["http://localhost:3000/*"],
+      "webOrigins": ["http://localhost:3000"],
+      "protocol": "openid-connect"
+    }
+  ],
+  "users": [
+    {
+      "username": "admin",
+      "enabled": true,
+      "email": "admin@x.com",
+      "emailVerified": true,
+      "firstName": "Admin",
+      "lastName": "User",
+      "credentials": [{ "type": "password", "value": "admin123", "temporary": false }],
+      "realmRoles": ["ADMIN"]
+    },
+    {
+      "username": "ana",
+      "enabled": true,
+      "email": "ana@x.com",
+      "emailVerified": true,
+      "firstName": "Ana",
+      "lastName": "Silva",
+      "credentials": [{ "type": "password", "value": "ana123", "temporary": false }],
+      "realmRoles": ["STUDENT"]
+    }
+  ]
+}

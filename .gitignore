@@ -1,1 +1,32 @@
-/.idea/
+# --- Java / build ---
+target/
+build/
+.gradle/
+*.class
+*.jar
+!**/gradle/wrapper/gradle-wrapper.jar
+
+# --- Node / frontend (web/) ---
+node_modules/
+.nuxt/
+.output/
+dist/
+.cache/
+
+# --- Env & secrets ---
+.env
+.env.*
+!.env.example
+
+# --- IDE / OS ---
+.idea/
+*.iml
+.vscode/
+.DS_Store
+
+# --- Logs ---
+*.log
+logs/
+
+# --- Maven (machine-local pointer to the private ~/.m2-private settings) ---
+.mvn/maven.config
