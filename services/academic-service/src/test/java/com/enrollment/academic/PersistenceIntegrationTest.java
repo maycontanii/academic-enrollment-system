@@ -1,7 +1,9 @@
 package com.enrollment.academic;
 
-import com.enrollment.academic.domain.*;
-import com.enrollment.academic.repository.*;
+import com.enrollment.academic.catalog.domain.*;
+import com.enrollment.academic.enrollment.domain.*;
+import com.enrollment.academic.catalog.repository.*;
+import com.enrollment.academic.enrollment.repository.*;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
