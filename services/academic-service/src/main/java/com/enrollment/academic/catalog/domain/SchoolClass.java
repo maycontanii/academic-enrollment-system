@@ -52,4 +52,26 @@ public class SchoolClass {
         this.seatsUsed = 0;
         this.status = ClassStatus.CLOSED;
     }
+
+    public boolean isOpen() {
+        return status == ClassStatus.OPEN;
+    }
+
+    public boolean hasFreeSeat() {
+        return seatsUsed < seatLimit;
+    }
+
+    /** Consume one seat. Guarded by the caller checking {@link #hasFreeSeat()}. */
+    public void consumeSeat() {
+        if (!hasFreeSeat()) {
+            throw new IllegalStateException("No free seat");
+        }
+        this.seatsUsed++;
+    }
+
+    public void releaseSeat() {
+        if (seatsUsed > 0) {
+            this.seatsUsed--;
+        }
+    }
 }

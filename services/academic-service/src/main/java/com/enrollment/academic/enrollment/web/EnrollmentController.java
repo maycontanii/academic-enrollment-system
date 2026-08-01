@@ -40,4 +40,15 @@ public class EnrollmentController {
     public EnrollmentResponse get(@PathVariable UUID id) {
         return service.get(id);
     }
+
+    @PostMapping("/{id}/confirm")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public EnrollmentResponse confirm(@PathVariable UUID id) {
+        return service.confirm(id);
+    }
+
+    @PostMapping("/{id}/cancel")
+    public EnrollmentResponse cancel(@PathVariable UUID id) {
+        return service.cancel(id);
+    }
 }

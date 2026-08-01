@@ -18,7 +18,7 @@ public class GlobalExceptionHandler {
         List<String> details = ex.getBindingResult().getFieldErrors().stream()
                 .map(f -> f.getField() + ": " + f.getDefaultMessage())
                 .toList();
-        return ErrorResponse.of("validation_error", "VALIDATION", "Invalid request", details);
+        return ErrorResponse.of("validation_error", ErrorCodes.VALIDATION, "Invalid request", details);
     }
 
     @ExceptionHandler(NotFoundException.class)

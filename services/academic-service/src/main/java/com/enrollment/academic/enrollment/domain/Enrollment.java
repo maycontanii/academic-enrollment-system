@@ -45,4 +45,40 @@ public class Enrollment {
         this.classId = classId;
         this.status = EnrollmentStatus.PENDING;
     }
+
+    // --- lifecycle transitions ---
+
+    public void startProcessing() {
+        this.status = EnrollmentStatus.PROCESSING;
+    }
+
+    public void confirm() {
+        this.status = EnrollmentStatus.CONFIRMED;
+    }
+
+    public void reject() {
+        this.status = EnrollmentStatus.REJECTED;
+    }
+
+    public void cancel() {
+        this.status = EnrollmentStatus.CANCELLED;
+    }
+
+    public boolean isPending() {
+        return status == EnrollmentStatus.PENDING;
+    }
+
+    public boolean isProcessing() {
+        return status == EnrollmentStatus.PROCESSING;
+    }
+
+    public boolean isConfirmed() {
+        return status == EnrollmentStatus.CONFIRMED;
+    }
+
+    public boolean isActive() {
+        return status == EnrollmentStatus.PENDING
+                || status == EnrollmentStatus.PROCESSING
+                || status == EnrollmentStatus.CONFIRMED;
+    }
 }
