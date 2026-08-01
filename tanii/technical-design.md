@@ -16,6 +16,8 @@
 
 Two independent Spring Boot services decoupled by asynchronous events over RabbitMQ, a Nuxt/Vue (Vuetify) frontend, and Keycloak for identity. Business scope lives in the PRD; this document is the "how". Everything runs locally via Docker Compose.
 
+The services map 1:1 to the bounded contexts in the Domain Map: **academic-service = Academic Enrollment**, **notifications-service = Notifications & Audit**; **Keycloak realizes the Identity context**. Aggregate names below come from the Domain Map.
+
 ```mermaid
 flowchart LR
   U[Admin / Student] --> FE[Frontend - Nuxt + Vuetify]
