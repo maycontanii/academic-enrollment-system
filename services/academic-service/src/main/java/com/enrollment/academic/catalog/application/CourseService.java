@@ -1,5 +1,7 @@
 package com.enrollment.academic.catalog.application;
 
+import com.enrollment.academic.shared.error.ErrorCodes;
+
 import com.enrollment.academic.shared.error.NotFoundException;
 
 import com.enrollment.academic.catalog.domain.Course;
@@ -53,6 +55,6 @@ public class CourseService {
 
     private Course find(UUID id) {
         return repository.findById(id)
-                .orElseThrow(() -> new NotFoundException("course.not_found", "Course not found"));
+                .orElseThrow(() -> new NotFoundException(ErrorCodes.COURSE_NOT_FOUND, "Course not found"));
     }
 }

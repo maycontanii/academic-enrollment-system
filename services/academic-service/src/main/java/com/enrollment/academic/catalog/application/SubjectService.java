@@ -1,5 +1,7 @@
 package com.enrollment.academic.catalog.application;
 
+import com.enrollment.academic.shared.error.ErrorCodes;
+
 import com.enrollment.academic.shared.error.NotFoundException;
 
 import com.enrollment.academic.catalog.domain.Subject;
@@ -59,12 +61,12 @@ public class SubjectService {
 
     private void requireCourse(UUID courseId) {
         if (!courseRepository.existsById(courseId)) {
-            throw new NotFoundException("course.not_found", "Course not found");
+            throw new NotFoundException(ErrorCodes.COURSE_NOT_FOUND, "Course not found");
         }
     }
 
     private Subject find(UUID id) {
         return repository.findById(id)
-                .orElseThrow(() -> new NotFoundException("subject.not_found", "Subject not found"));
+                .orElseThrow(() -> new NotFoundException(ErrorCodes.SUBJECT_NOT_FOUND, "Subject not found"));
     }
 }

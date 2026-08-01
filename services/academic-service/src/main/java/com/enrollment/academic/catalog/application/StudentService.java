@@ -1,5 +1,7 @@
 package com.enrollment.academic.catalog.application;
 
+import com.enrollment.academic.shared.error.ErrorCodes;
+
 import com.enrollment.academic.shared.error.ConflictException;
 import com.enrollment.academic.shared.error.NotFoundException;
 
@@ -26,7 +28,7 @@ public class StudentService {
     @Transactional
     public StudentResponse create(StudentRequest request) {
         if (repository.existsByEmail(request.email())) {
-            throw new ConflictException("student.email.duplicate", "Email already registered");
+            throw new ConflictException(ErrorCodes.STUDENT_EMAIL_DUPLICATE, "Email already registered");
         }
         Student student = new Student(request.name(), request.email(), request.document());
         return StudentResponse.from(repository.save(student));
@@ -36,7 +38,7 @@ public class StudentService {
     public StudentResponse update(UUID id, StudentRequest request) {
         Student student = find(id);
         if (repository.existsByEmailAndIdNot(request.email(), id)) {
-            throw new ConflictException("student.email.duplicate", "Email already registered");
+            throw new ConflictException(ErrorCodes.STUDENT_EMAIL_DUPLICATE, "Email already registered");
         }
         student.setName(request.name());
         student.setEmail(request.email());
@@ -61,6 +63,6 @@ public class StudentService {
 
     private Student find(UUID id) {
         return repository.findById(id)
-                .orElseThrow(() -> new NotFoundException("student.not_found", "Student not found"));
+                .orElseThrow(() -> new NotFoundException(ErrorCodes.STUDENT_NOT_FOUND, "Student not found"));
     }
 }
