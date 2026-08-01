@@ -1,0 +1,6 @@
+# Academic Enrollment System — local stack (Docker Compose).
+# T2 adds the backing infra (postgres, rabbitmq, keycloak);
+# app services (academic-service, notifications-service, web) join as they are built.
+name: academic-enrollment-system
+
+services: {}
