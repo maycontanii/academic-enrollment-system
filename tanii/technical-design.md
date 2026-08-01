@@ -2,7 +2,7 @@
 
 ## Metadata
 
-- Status: Draft
+- Status: Approved
 - Tier: 2
 - Mode: AI Architect
 - Aggregates: Student, Course, Subject, Class, Enrollment
@@ -34,6 +34,16 @@ flowchart LR
 
 Out of scope (technical): realtime push to the browser (polling instead); multiple database instances (one PostgreSQL, two databases); real cloud deployment.
 
+**Repository layout (monorepo).** Backend and frontend live in **one git repository** — not split into separate products at this stage. A `services/` folder holds the two Spring Boot services and a `web/` folder holds the Nuxt/Vue app, with `docker-compose.yml` and `tanii/` at the root. Splitting into independent repositories is deliberately deferred.
+
+```
+academic-enrollment-system/
+├── services/           academic-service · notifications-service
+├── web/                Nuxt/Vue app
+├── docker-compose.yml  infra + app services
+└── tanii/              method artifacts (this doc, PRD, domain map, …)
+```
+
 ## 2. Non-Functional Requirements
 
 | Category | Technical stance |
@@ -61,16 +71,86 @@ Each service owns its data — no shared tables. One PostgreSQL instance, two da
 
 **academic-service (`academicdb`)**
 
-- **Student** — `id` (UUID), `name`, `email` (unique), `document`.
-- **Course** — `id`, `name`, `description`.
-- **Subject** — `id`, `name`, `course_id` (FK), `description`.
-- **Class** — `id`, `subject_id` (FK), `label`, `seat_limit` (int), `seats_used` (int), `status` (`OPEN`|`CLOSED`), `version` (optimistic lock).
-- **Enrollment** — `id`, `student_id` (FK), `class_id` (FK), `status` (`PENDING`|`PROCESSING`|`CONFIRMED`|`REJECTED`|`CANCELLED`), `created_at`, `updated_at`. Unique active `(student_id, class_id)` while status is PENDING/PROCESSING/CONFIRMED.
-- **outbox** — `id`, `aggregate_type`, `event_type`, `payload` (jsonb), `created_at`, `published_at` (nullable).
+*Student*
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | UUID | PK |
+| `name` | TEXT | NOT NULL |
+| `email` | TEXT | NOT NULL, UNIQUE |
+| `document` | TEXT | optional |
+
+*Course*
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | UUID | PK |
+| `name` | TEXT | NOT NULL |
+| `description` | TEXT | optional |
+
+*Subject*
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | UUID | PK |
+| `name` | TEXT | NOT NULL |
+| `course_id` | UUID | FK → course, NOT NULL |
+| `description` | TEXT | optional |
+
+*Class*
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | UUID | PK |
+| `subject_id` | UUID | FK → subject, NOT NULL |
+| `label` | TEXT | NOT NULL |
+| `seat_limit` | INT | NOT NULL, CHECK > 0 |
+| `seats_used` | INT | NOT NULL, DEFAULT 0 |
+| `status` | TEXT | NOT NULL — `OPEN` \| `CLOSED` |
+| `version` | BIGINT | NOT NULL — optimistic lock |
+
+*Enrollment*
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | UUID | PK |
+| `student_id` | UUID | FK → student, NOT NULL |
+| `class_id` | UUID | FK → class, NOT NULL |
+| `status` | TEXT | NOT NULL — `PENDING` \| `PROCESSING` \| `CONFIRMED` \| `REJECTED` \| `CANCELLED` |
+| `created_at` | TIMESTAMPTZ | NOT NULL |
+| `updated_at` | TIMESTAMPTZ | NOT NULL |
+
+> Partial unique index on `(student_id, class_id)` while status ∈ {PENDING, PROCESSING, CONFIRMED} — one active enrollment per class.
+
+*outbox*
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | UUID | PK |
+| `aggregate_type` | TEXT | e.g. `Enrollment` |
+| `event_type` | TEXT | e.g. `enrollment.confirmed.v1` |
+| `payload` | JSONB | event body |
+| `created_at` | TIMESTAMPTZ | NOT NULL |
+| `published_at` | TIMESTAMPTZ | NULL until published by the relay |
 
 **notifications-service (`notificationsdb`)**
 
-- **audit_log** (append-only) — `id`, `event_id` (unique — idempotency), `enrollment_id`, `student_id`, `class_id`, `action` (`CREATED`|`CONFIRMED`|`REJECTED`|`CANCELLED`), `actor` (from JWT), `occurred_at`, `received_at`, `payload` (jsonb). Scope: the **enrollment lifecycle only** — the most critical operation. Examples — creation: `action=CREATED, actor=ana@x.com, payload={status:PENDING}`; confirmation: `action=CONFIRMED, actor=ana@x.com, payload={seats_used:30}`.
+*audit_log* (append-only) — enrollment lifecycle only
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | UUID | PK |
+| `event_id` | UUID | UNIQUE — idempotency |
+| `enrollment_id` | UUID | |
+| `student_id` | UUID | |
+| `class_id` | UUID | |
+| `action` | TEXT | `CREATED` \| `CONFIRMED` \| `REJECTED` \| `CANCELLED` |
+| `actor` | TEXT | who did it (from JWT) |
+| `occurred_at` | TIMESTAMPTZ | when it happened |
+| `received_at` | TIMESTAMPTZ | when audited |
+| `payload` | JSONB | event body |
+
+Examples — creation: `action=CREATED, actor=ana@x.com, payload={status:PENDING}`; confirmation: `action=CONFIRMED, actor=ana@x.com, payload={seats_used:30}`.
 
 ### 4.2 Endpoints
 
@@ -115,23 +195,55 @@ sequenceDiagram
 
 ### 4.5 Authorization & errors
 
-Keycloak OIDC; services are OAuth2 resource servers validating JWTs. Roles: **ADMIN** (catalog, students, access, any enrollment) and **STUDENT** (own enrollments only — ownership check on every student-scoped operation). Standardized error-response envelope; input validation on all writes. Events carry only the identifiers needed — no unnecessary personal data.
+**What is created in Keycloak.** One realm, one client, and **fine-grained action rules** grouped into two **composite roles**. A user gets one composite role (`ADMIN` or `STUDENT`); the JWT carries the effective action rules in `realm_access.roles`; each endpoint requires the specific rule. Composite roles keep day-to-day assignment simple while the fine-grained rules give precise, per-action control (and room for variants later, e.g. a read-only admin).
 
-Roles × endpoints (STUDENT is limited to their own enrollments — `enrollment.student_id` must equal the authenticated user):
+**Role `ADMIN`** = these rules (exactly what an admin can do):
 
-| Endpoint | ADMIN | STUDENT |
-|---|:--:|:--:|
-| CRUD `/api/{students,courses,subjects,classes}`, open/close class | ✓ | — |
-| `GET /api/classes?status=OPEN` (browse + seats) | ✓ | ✓ |
-| `POST /api/enrollments` | ✓ any | ✓ self |
-| `POST /api/enrollments/{id}/confirm` · `/cancel` | ✓ | ✓ own |
-| `GET /api/enrollments` · `/{id}` | ✓ all | ✓ own |
+`adm_create_student`, `adm_read_student`, `adm_update_student`, `adm_delete_student` · the same four for course, subject, class (`adm_{create,read,update,delete}_{course,subject,class}`) · `adm_open_class`, `adm_close_class` · `adm_create_enrollment`, `adm_confirm_enrollment`, `adm_cancel_enrollment`, `adm_read_enrollment`.
+
+**Role `STUDENT`** = these rules (exactly what a student can do):
+
+`student_browse_class`, `student_create_enrollment`, `student_confirm_enrollment`, `student_cancel_enrollment`, `student_read_enrollment`.
+
+**Endpoint → required rule** (for `student_*` the app also enforces ownership — data-dependent, so it stays in code, not Keycloak):
+
+| Method + Path | Required rule |
+|---|---|
+| `POST/GET/PUT/DELETE /api/students` | `adm_{create,read,update,delete}_student` |
+| `POST/GET/PUT/DELETE /api/courses` | `adm_{create,read,update,delete}_course` |
+| `POST/GET/PUT/DELETE /api/subjects` | `adm_{create,read,update,delete}_subject` |
+| `POST/GET/PUT/DELETE /api/classes` | `adm_{create,read,update,delete}_class` |
+| `POST /api/classes/{id}/open` | `adm_open_class` |
+| `POST /api/classes/{id}/close` | `adm_close_class` |
+| `GET /api/classes?status=OPEN` | `student_browse_class` (ADMIN via `adm_read_class`) |
+| `POST /api/enrollments` | `student_create_enrollment` (self) · `adm_create_enrollment` (any) |
+| `POST /api/enrollments/{id}/confirm` | `student_confirm_enrollment` (own) · `adm_confirm_enrollment` |
+| `POST /api/enrollments/{id}/cancel` | `student_cancel_enrollment` (own) · `adm_cancel_enrollment` |
+| `GET /api/enrollments?studentId=&classId=` | `student_read_enrollment` (own; `studentId` forced to token `sub`) · `adm_read_enrollment` (all) |
+| `GET /api/enrollments/{id}` | `student_read_enrollment` (own) · `adm_read_enrollment` |
+
+**Ownership:** for `student_*` enrollment rules, `enrollment.student_id` must equal the token `sub`.
+
+**Errors:** no/invalid token → `401`; missing rule or ownership fails → `403`; business errors (class closed, no seats, duplicate active) → `409`/`422` via the standardized error envelope; input validation → `400`. Events carry only the identifiers needed — no unnecessary personal data.
 
 ## 5. Frontend
 
 Detailed in the approved UI Skeleton — admin management + student self-service, Nuxt/Vue + Vuetify. The asynchronous outcome (CONFIRMED/REJECTED) surfaces on "My Enrollments" via short polling while any enrollment is PROCESSING; no realtime push in scope.
 
-## 6. Runtime & Deployment
+## 6. Infrastructure
+
+What runs alongside the code, and **why each** — all self-hosted via Docker Compose for local reproducibility.
+
+| Component | Role | Why this one |
+|---|---|---|
+| **PostgreSQL** | System of record — two databases (`academicdb`, `notificationsdb`) | Relational integrity fits the domain (FKs, constraints, transactions). The **seat guarantee lives here**: optimistic locking (`version`) and the transactional **outbox** both rely on ACID transactions. Mature and trivial in Compose. |
+| **RabbitMQ** | Message broker — finalize work queue + events fanout, with DLQs | Right-sized for command + pub/sub at this volume; native retry/DLQ; competing consumers keep the concurrency demonstration honest. Full rationale (vs Kafka / SNS+SQS) in ADR-0001. |
+| **Keycloak** | Identity provider (OIDC) | Standard OIDC/OAuth2 out of the box — realm, client, roles, token issuance — so services stay plain resource servers instead of hand-rolling auth. Realm is imported for reproducibility. |
+| **Docker Compose** | Local orchestration of infra + app services | The delivery target is a reproducible **local** run (`docker compose up`), not cloud. Brings everything up together and supports `--scale` for the concurrency demo. |
+
+App services (academic-service, notifications-service, frontend) are the code, provisioned into the same Compose — see below.
+
+## 7. Runtime & Deployment
 
 Local, via Docker Compose: `postgres` (two databases), `rabbitmq`, `keycloak`, `academic-service`, `notifications-service`, `frontend`.
 
