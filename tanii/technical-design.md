@@ -44,7 +44,7 @@ Out of scope (technical): realtime push to the browser (polling instead); multip
 | Performance at scale | Paged, filtered queries; indexed lookups by student and class. |
 | Auditability | Append-only `audit_log` owned by notifications-service. |
 | Security | Keycloak OIDC; role-based; ownership checks. |
-| Observability | JSON logs + correlation/trace id across HTTP and the broker; health and metrics via Actuator. |
+| Observability | JSON logs + correlation/trace id across HTTP and the broker; health and metrics via Micrometer/Actuator (in-app — already meets the need). Prometheus/Grafana/Jaeger dashboards optional. Strategic/business metrics (via BI over a read replica) noted as evolution. |
 
 ## 3. Dependencies
 
@@ -70,7 +70,7 @@ Each service owns its data — no shared tables. One PostgreSQL instance, two da
 
 **notifications-service (`notificationsdb`)**
 
-- **audit_log** (append-only) — `id`, `event_id` (unique — idempotency), `event_type`, `enrollment_id`, `student_id`, `class_id`, `status`, `occurred_at`, `received_at`, `payload`.
+- **audit_log** (append-only) — `id`, `event_id` (unique — idempotency), `enrollment_id`, `student_id`, `class_id`, `action` (`CREATED`|`CONFIRMED`|`REJECTED`|`CANCELLED`), `actor` (from JWT), `occurred_at`, `received_at`, `payload` (jsonb). Scope: the **enrollment lifecycle only** — the most critical operation. Examples — creation: `action=CREATED, actor=ana@x.com, payload={status:PENDING}`; confirmation: `action=CONFIRMED, actor=ana@x.com, payload={seats_used:30}`.
 
 ### 4.2 Endpoints
 
@@ -117,9 +117,27 @@ sequenceDiagram
 
 Keycloak OIDC; services are OAuth2 resource servers validating JWTs. Roles: **ADMIN** (catalog, students, access, any enrollment) and **STUDENT** (own enrollments only — ownership check on every student-scoped operation). Standardized error-response envelope; input validation on all writes. Events carry only the identifiers needed — no unnecessary personal data.
 
+Roles × endpoints (STUDENT is limited to their own enrollments — `enrollment.student_id` must equal the authenticated user):
+
+| Endpoint | ADMIN | STUDENT |
+|---|:--:|:--:|
+| CRUD `/api/{students,courses,subjects,classes}`, open/close class | ✓ | — |
+| `GET /api/classes?status=OPEN` (browse + seats) | ✓ | ✓ |
+| `POST /api/enrollments` | ✓ any | ✓ self |
+| `POST /api/enrollments/{id}/confirm` · `/cancel` | ✓ | ✓ own |
+| `GET /api/enrollments` · `/{id}` | ✓ all | ✓ own |
+
 ## 5. Frontend
 
 Detailed in the approved UI Skeleton — admin management + student self-service, Nuxt/Vue + Vuetify. The asynchronous outcome (CONFIRMED/REJECTED) surfaces on "My Enrollments" via short polling while any enrollment is PROCESSING; no realtime push in scope.
+
+## 6. Runtime & Deployment
+
+Local, via Docker Compose: `postgres` (two databases), `rabbitmq`, `keycloak`, `academic-service`, `notifications-service`, `frontend`.
+
+**Reproducing concurrency (local-only concern):** to show the seat race across processes, scale the API — `docker compose up --scale academic-service=2`. This requires the service to be **stateless** (state only in Postgres/RabbitMQ) and to **not bind a fixed host port** when scaled (instances auto-named `academic-service-1/-2`). Both instances' consumers compete on `enrollment.finalize.q`; PostgreSQL (optimistic lock) is the single arbiter. In the cloud an orchestrator handles this — it matters only for local reproduction.
+
+**No load balancer is required for the race:** it happens where the finalization consumers pull from the queue, and RabbitMQ already distributes messages across competing consumers on both instances — the HTTP path may even hit a single instance. A gateway/load balancer (e.g. Traefik, which auto-discovers scaled Compose services) is optional polish for the HTTP path (one stable URL, requests spread) — realistic, not required.
 
 ## Architecture Decisions
 
