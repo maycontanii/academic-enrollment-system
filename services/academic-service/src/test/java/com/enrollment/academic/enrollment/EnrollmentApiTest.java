@@ -1,6 +1,7 @@
 package com.enrollment.academic.enrollment;
 
 import com.enrollment.academic.AbstractIntegrationTest;
+import com.enrollment.academic.support.AsAdmin;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
@@ -18,6 +19,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@AsAdmin
 class EnrollmentApiTest extends AbstractIntegrationTest {
 
     @Autowired MockMvc mvc;

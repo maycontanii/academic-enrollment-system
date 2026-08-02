@@ -13,6 +13,7 @@ import com.enrollment.academic.shared.error.BusinessException;
 import com.enrollment.academic.shared.error.ConflictException;
 import com.enrollment.academic.shared.error.NotFoundException;
 import com.enrollment.academic.shared.outbox.OutboxWriter;
+import com.enrollment.academic.shared.security.AccessGuard;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -34,6 +35,7 @@ class EnrollmentServiceTest {
     @Mock StudentRepository students;
     @Mock SchoolClassRepository classes;
     @Mock OutboxWriter outboxWriter;
+    @Mock AccessGuard accessGuard;
     @InjectMocks EnrollmentService service;
 
     final UUID studentId = UUID.randomUUID();

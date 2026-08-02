@@ -18,6 +18,11 @@ spring:
     listener:
       simple:
         default-requeue-rejected: false   # a failing message is dead-lettered, not requeued forever
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${KEYCLOAK_JWK_URI:http://localhost:8080/realms/academic-enrollment/protocol/openid-connect/certs}
 
 management:
   endpoints:
