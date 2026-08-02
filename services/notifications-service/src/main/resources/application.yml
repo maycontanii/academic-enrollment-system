@@ -17,6 +17,7 @@ spring:
   rabbitmq:
     listener:
       simple:
+        observation-enabled: true         # continue the trace carried on each event
         default-requeue-rejected: false   # a failing message is dead-lettered, not requeued forever
 
 management:
@@ -28,3 +29,6 @@ management:
     health:
       probes:
         enabled: true
+  tracing:
+    sampling:
+      probability: 1.0                     # trace every message in this demo

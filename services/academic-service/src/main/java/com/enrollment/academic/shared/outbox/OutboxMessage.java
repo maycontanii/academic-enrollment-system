@@ -39,10 +39,15 @@ public class OutboxMessage {
     @Column(name = "published_at")
     private Instant publishedAt;
 
-    public OutboxMessage(String aggregateType, String eventType, String payload) {
+    /** Serialized trace context of the request that produced this message (null if untraced). */
+    @Column(name = "trace_context")
+    private String traceContext;
+
+    public OutboxMessage(String aggregateType, String eventType, String payload, String traceContext) {
         this.aggregateType = aggregateType;
         this.eventType = eventType;
         this.payload = payload;
+        this.traceContext = traceContext;
     }
 
     public void markPublished(Instant when) {

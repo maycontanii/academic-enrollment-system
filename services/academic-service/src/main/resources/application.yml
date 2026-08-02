@@ -15,8 +15,11 @@ spring:
   flyway:
     enabled: true
   rabbitmq:
+    template:
+      observation-enabled: true           # inject trace context into published messages
     listener:
       simple:
+        observation-enabled: true         # continue the trace when consuming
         default-requeue-rejected: false   # a failing message is dead-lettered, not requeued forever
   security:
     oauth2:
@@ -33,3 +36,6 @@ management:
     health:
       probes:
         enabled: true
+  tracing:
+    sampling:
+      probability: 1.0                     # trace every request in this demo

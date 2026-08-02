@@ -3,6 +3,7 @@ package com.enrollment.academic.shared.outbox;
 import com.enrollment.academic.enrollment.application.EnrollmentOutbox;
 import com.enrollment.academic.shared.messaging.EventEnvelope;
 import com.enrollment.academic.shared.messaging.RabbitConfig;
+import com.enrollment.academic.shared.observability.TracePropagation;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,11 +28,14 @@ public class OutboxRelay {
     private final OutboxRepository repository;
     private final RabbitTemplate rabbitTemplate;
     private final ObjectMapper objectMapper;
+    private final TracePropagation tracePropagation;
 
-    public OutboxRelay(OutboxRepository repository, RabbitTemplate rabbitTemplate, ObjectMapper objectMapper) {
+    public OutboxRelay(OutboxRepository repository, RabbitTemplate rabbitTemplate,
+                       ObjectMapper objectMapper, TracePropagation tracePropagation) {
         this.repository = repository;
         this.rabbitTemplate = rabbitTemplate;
         this.objectMapper = objectMapper;
+        this.tracePropagation = tracePropagation;
     }
 
     @Scheduled(fixedDelayString = "${outbox.relay.delay-ms:1000}")
@@ -39,7 +43,8 @@ public class OutboxRelay {
         List<OutboxMessage> pending = repository.findByPublishedAtIsNullOrderByCreatedAtAsc();
         for (OutboxMessage message : pending) {
             try {
-                publish(message);
+                // Restore the producing request's trace so the message crosses the broker in-trace.
+                tracePropagation.continueTrace(message.getTraceContext(), () -> publish(message));
                 message.markPublished(Instant.now());
                 repository.save(message);
             } catch (Exception e) {
