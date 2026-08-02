@@ -1,5 +1,7 @@
-# Academic Enrollment System — local stack (Docker Compose).
-# Backing infra (this file, T2); app services (academic-service, notifications-service, web) join as they are built.
+# Academic Enrollment System — full local stack (Docker Compose).
+# One `docker compose up` runs infra + all app services. Scale the API to demonstrate the seat race:
+#   docker compose up --scale academic-service=2
+# (both replicas compete as consumers on the RabbitMQ finalize queue).
 name: academic-enrollment-system
 
 services:
@@ -52,6 +54,72 @@ services:
       timeout: 5s
       retries: 30
       start_period: 20s
+
+  # --- Application services ---
+
+  academic-service:
+    build: ./services/academic-service
+    environment:
+      DB_HOST: postgres
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USER: ${RABBITMQ_USER:-app}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-app}
+      DB_USER: ${POSTGRES_USER:-app}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-app}
+      KEYCLOAK_JWK_URI: http://keycloak:8080/realms/academic-enrollment/protocol/openid-connect/certs
+    # No host port: it runs behind academic-gateway so it can be scaled (--scale academic-service=2).
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8081/actuator/health | grep -q UP"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+
+  # Stable :8081 entry so the browser has one URL while academic-service scales behind it.
+  academic-gateway:
+    image: nginx:1.27-alpine
+    volumes:
+      - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "8081:8081"
+    depends_on:
+      - academic-service
+
+  notifications-service:
+    build: ./services/notifications-service
+    environment:
+      DB_HOST: postgres
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USER: ${RABBITMQ_USER:-app}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-app}
+      DB_USER: ${POSTGRES_USER:-app}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-app}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8082/actuator/health | grep -q UP"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+
+  # The SPA. The browser reaches the API at localhost:8081 (gateway) and Keycloak at localhost:8080,
+  # so the image is built with the default (localhost) public config — no runtime wiring needed.
+  web:
+    build: ./web
+    ports:
+      - "3000:3000"
+    depends_on:
+      - academic-gateway
+      - keycloak
 
 volumes:
   pgdata:
