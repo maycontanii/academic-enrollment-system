@@ -10,4 +10,4 @@ Rules:
 
 ## Log
 
-- (empty — add your first entry here)
+- 2026-08-02 — Captured durable knowledge into `central/` after the implementation phases: ADR-0002 (seat concurrency), ADR-0003 (JIT identity linking), ADR-0004 (gateway for scaling); patterns (authorize-by-action, outbox trace-carry, shared-singleton Testcontainers); lessons (SpringBootTest observability autoconfig, Keycloak two-hostname JWKS).
