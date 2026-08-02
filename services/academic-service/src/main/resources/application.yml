@@ -15,6 +15,10 @@ spring:
   flyway:
     enabled: true
   rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:app}
+    password: ${RABBITMQ_PASSWORD:app}
     template:
       observation-enabled: true           # inject trace context into published messages
     listener:
