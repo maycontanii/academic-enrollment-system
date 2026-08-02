@@ -130,6 +130,30 @@ Uma vaga só fica ocupada enquanto a matrícula está `CONFIRMED`; cancelar uma 
 - **Tracing distribuído que cruza o broker.** Como a publicação é adiada para o relay do outbox (outra thread), o contexto de trace da requisição é carregado na linha do outbox e restaurado na publicação — então um único `traceId` percorre HTTP → outbox → relay → broker → consumidor. Detalhes em [docs/observability.md](docs/observability.md).
 - **Métricas & health** via Actuator + Prometheus (`/actuator/prometheus`, `/actuator/health`).
 
+## Dashboards opcionais
+
+Dois stacks opcionais ficam atrás de **profiles do Docker Compose** — um `docker compose up` normal segue enxuto e nunca os sobe.
+
+**Observabilidade** — métricas + logs:
+
+```bash
+docker compose --profile observability up
+```
+
+- **Grafana** → http://localhost:3001 (admin anônimo) — datasources Prometheus + Loki provisionados e um dashboard *Academic Enrollment — Overview* (taxa de requisições HTTP, heap da JVM, logs JSON ao vivo).
+- **Prometheus** → http://localhost:9090 — coleta os dois serviços (todas as réplicas via descoberta por DNS).
+- **Loki + Promtail** coletam os logs JSON de cada container, rotulados por `service` e `level` (o `traceId` viaja no corpo do log).
+
+**Métricas de negócio** — Metabase:
+
+```bash
+docker compose --profile business up
+```
+
+- **Metabase** → http://localhost:3002 — **provisionado automaticamente**: um container de inicialização cria o admin, conecta o `academicdb` e monta um dashboard inicial *Academic — Business Overview* (matrículas por status, ocupação de vagas por turma). Entre com `admin@example.com` / `metabase123`; a partir daí crie suas próprias perguntas.
+
+Suba tudo junto com `docker compose --profile observability --profile business up`.
+
 ## Testes
 
 Cada serviço é testado com JUnit + Testcontainers (PostgreSQL e RabbitMQ reais em Docker):

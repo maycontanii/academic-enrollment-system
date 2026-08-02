@@ -112,3 +112,14 @@ broker asynchronously.
 2. Make an enrollment and confirm it.
 3. Grep the aggregated JSON logs for a single `traceId` and confirm the same value appears in both
    `academic-service` (request + relay publish) and `notifications-service` (consumer) lines.
+
+## Optional dashboards
+
+The baseline above is in-app and needs no extra tooling. Two optional Compose profiles add UIs when
+you want them (see the root `README`):
+
+- `--profile observability` → **Prometheus + Grafana** (metrics, provisioned overview dashboard) and
+  **Loki + Promtail** (the containers' JSON logs, labeled by `service`/`level`, `traceId` in the body).
+- `--profile business` → **Metabase** over `academicdb` for business metrics — auto-provisioned (admin, database connection, and a starter dashboard) by a one-shot init container.
+
+Both are additive — the mandatory build never depends on them.

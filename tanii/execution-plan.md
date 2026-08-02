@@ -51,6 +51,7 @@ Implement the system incrementally, **core-first**: the mandatory domain and the
 
 - [ ] **T15. README + architectural doc** — run, tests, tech, key decisions, seat protection, concurrency, events, messaging-failure handling, observability, AI use. *Done: a fresh clone runs from the README alone.*
 - [ ] **T16. Stretch (optional, additive)** — Grafana/Prometheus dashboard; Traefik gateway; distributed-tracing UI; CI/CD; pagination/filter polish. *Done: each is additive; skipping never breaks the mandatory build.*
+  - Delivered: optional **observability** profile (Prometheus + Grafana + Loki + Promtail) and **business** profile (Metabase over `academicdb`), both behind Compose profiles. Remaining candidates (Traefik, tracing UI, CI/CD) stay open.
 
 ## Boundaries
 

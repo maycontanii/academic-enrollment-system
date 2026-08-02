@@ -262,6 +262,8 @@ Local, via Docker Compose: `postgres` (two databases), `rabbitmq`, `keycloak`, `
 
 **Service wiring & config.** App services reach the infra by Compose hostname (`postgres`, `rabbitmq`, `keycloak`); datastore and broker credentials come from env (default `app`/`app`). The SPA image is built with the browser-facing defaults (`localhost:8081` API via the gateway, `localhost:8080` Keycloak). JWTs are validated by **`jwk-set-uri`, not `issuer-uri`**: the browser obtains tokens from `localhost:8080` (so `iss=localhost`) while the backend fetches JWKS from `keycloak:8080` internally — validating by signature avoids the two-hostname issuer mismatch. A Flyway **seed** (demo course/subjects/classes — including a one-seat class for the race — and a few students) makes the admin side testable on first `up`.
 
+**Optional dashboards (additive, behind Compose profiles).** The core stack stays lean; two profiles add analytics without touching it. `--profile observability` brings up **Prometheus + Grafana** (provisioned datasources and an overview dashboard) and **Loki + Promtail** (the containers' JSON logs, labeled by service/level) — realizing the "dashboards optional" note above. `--profile business` brings up **Metabase** over `academicdb` for business metrics — realizing the "strategic/business metrics via BI" evolution. Neither is required for the mandatory build.
+
 ## Architecture Decisions
 
 - **ADR-0001 — RabbitMQ** as broker (not Kafka now; SNS+SQS as the managed equivalent) — see `central/architecture-decisions/0001-messaging-broker-rabbitmq.md`.

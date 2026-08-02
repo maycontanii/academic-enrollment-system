@@ -130,6 +130,30 @@ A seat is held only while an enrollment is `CONFIRMED`; cancelling a confirmed e
 - **Distributed tracing that crosses the broker.** Because publishing is deferred to the outbox relay (a different thread), the request's trace context is carried in the outbox row and restored at publish time — so a single `traceId` spans HTTP → outbox → relay → broker → consumer. Details in [docs/observability.md](docs/observability.md).
 - **Metrics & health** via Actuator + Prometheus (`/actuator/prometheus`, `/actuator/health`).
 
+## Optional dashboards
+
+Two optional stacks ride behind **Docker Compose profiles** — a plain `docker compose up` stays lean and never starts them.
+
+**Observability** — metrics + logs:
+
+```bash
+docker compose --profile observability up
+```
+
+- **Grafana** → http://localhost:3001 (anonymous admin) — provisioned Prometheus + Loki datasources and an *Academic Enrollment — Overview* dashboard (HTTP request rate, JVM heap, live JSON logs).
+- **Prometheus** → http://localhost:9090 — scrapes both services (all replicas via DNS discovery).
+- **Loki + Promtail** collect every container's JSON logs, labeled by `service` and `level` (the `traceId` travels in the log body).
+
+**Business metrics** — Metabase:
+
+```bash
+docker compose --profile business up
+```
+
+- **Metabase** → http://localhost:3002 — **auto-provisioned**: a one-shot init container creates the admin, connects `academicdb`, and builds an *Academic — Business Overview* starter dashboard (enrollments by status, seat fill by class). Sign in with `admin@example.com` / `metabase123`; add your own questions from there.
+
+Start everything together with `docker compose --profile observability --profile business up`.
+
 ## Testing
 
 Each service is tested with JUnit + Testcontainers (real PostgreSQL and RabbitMQ in Docker):
