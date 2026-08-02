@@ -54,20 +54,21 @@ academic-enrollment-system/
 | Performance at scale | Paged, filtered queries; indexed lookups by student and class. |
 | Auditability | Append-only `audit_log` owned by notifications-service. |
 | Security | Keycloak OIDC; role-based; ownership checks. |
-| Observability | JSON logs + correlation/trace id across HTTP and the broker; health and metrics via Micrometer/Actuator (in-app — already meets the need). Prometheus/Grafana/Jaeger dashboards optional. Strategic/business metrics (via BI over a read replica) noted as evolution. |
+| Observability | JSON logs + correlation/trace id across HTTP and the broker; health and metrics via Micrometer/Actuator (in-app — already meets the need). Because publishing is deferred to the outbox relay (a different thread with no active request), the producing request's trace context is captured into the `outbox` row and restored at publish time, so a single trace spans HTTP → outbox → relay → broker → consumer. Prometheus/Grafana/Jaeger dashboards optional. Strategic/business metrics (via BI over a read replica) noted as evolution. |
 
 ## 3. Dependencies
 
-- Java 21, Spring Boot (Web, Data JPA, Security resource server, AMQP, Actuator, Validation), Flyway, springdoc-openapi, Micrometer/OpenTelemetry.
-- PostgreSQL, RabbitMQ, Keycloak.
-- Nuxt/Vue + Vuetify.
-- Testcontainers; Docker Compose (postgres, rabbitmq, keycloak, academic-service, notifications-service, frontend).
+- Java 21, Spring Boot (Web, Data JPA, Security resource server, AMQP, Actuator, Validation), Flyway, springdoc-openapi.
+- Observability: Micrometer Tracing (Brave bridge), Prometheus registry, logstash-logback-encoder (JSON logs).
+- PostgreSQL, RabbitMQ, Keycloak; nginx (minimal API gateway for scaling).
+- Nuxt/Vue + Vuetify; keycloak-js (OIDC/PKCE), Pinia.
+- Testcontainers; Docker Compose (postgres, rabbitmq, keycloak, academic-service, academic-gateway, notifications-service, web).
 
 ## 4. Backend
 
 ### 4.1 Data model
 
-Each service owns its data — no shared tables. One PostgreSQL instance, two databases.
+Each service owns its data — no shared tables. One PostgreSQL instance, two databases. Schema is Flyway-managed per service (academic-service: aggregates → outbox → `student.keycloak_id` → `outbox.trace_context` → demo seed).
 
 **academic-service (`academicdb`)**
 
@@ -79,6 +80,7 @@ Each service owns its data — no shared tables. One PostgreSQL instance, two da
 | `name` | TEXT | NOT NULL |
 | `email` | TEXT | NOT NULL, UNIQUE |
 | `document` | TEXT | optional |
+| `keycloak_id` | TEXT | UNIQUE, nullable — links the academic record to a Keycloak identity (self-service); set on the student's first login |
 
 *Course*
 
@@ -132,6 +134,7 @@ Each service owns its data — no shared tables. One PostgreSQL instance, two da
 | `payload` | JSONB | event body |
 | `created_at` | TIMESTAMPTZ | NOT NULL |
 | `published_at` | TIMESTAMPTZ | NULL until published by the relay |
+| `trace_context` | TEXT | nullable — the producing request's trace context, so the trace continues when the relay publishes on another thread |
 
 **notifications-service (`notificationsdb`)**
 
@@ -156,11 +159,12 @@ Examples — creation: `action=CREATED, actor=ana@x.com, payload={status:PENDING
 
 REST/JSON under `/api`, role in parentheses, lists paged/filtered. Full OpenAPI is emitted at build time (mandatory backend output).
 
-- **Catalog (ADMIN):** CRUD `/api/students`, `/api/courses`, `/api/subjects`, `/api/classes`; `POST /api/classes/{id}/open` · `/close`.
+- **Catalog (ADMIN writes):** CRUD `/api/students`, `/api/courses`, `/api/subjects`, `/api/classes`; `POST /api/classes/{id}/open` · `/close`. **Reads (`GET`) on `/api/courses` and `/api/subjects` are also allowed to students** so they can navigate course → subject → open classes.
+- **Identity:** `GET /api/students/me` — the caller's own student, resolved from the JWT; on a student's first login it links an existing record by email or materializes one from the token (see §4.5).
 - **Browsing (STUDENT/ADMIN):** `GET /api/classes?subjectId=&status=OPEN` (with seat availability).
 - **Enrollment:** `POST /api/enrollments` (create PENDING) · `POST /api/enrollments/{id}/confirm` (202, → PROCESSING) · `POST /api/enrollments/{id}/cancel` · `GET /api/enrollments?studentId=&classId=&status=` (ADMIN all; STUDENT own) · `GET /api/enrollments/{id}`.
 - **Operational:** `/actuator/health`, `/actuator/prometheus`, `/v3/api-docs` (+ `/swagger-ui`).
-- Access management → Keycloak admin console (not a custom API).
+- Account/role management → Keycloak admin console (not a custom API); the app only *links* an academic record to an existing identity.
 
 ### 4.3 Messaging (events & topology)
 
@@ -210,8 +214,9 @@ sequenceDiagram
 | Method + Path | Required rule |
 |---|---|
 | `POST/GET/PUT/DELETE /api/students` | `adm_{create,read,update,delete}_student` |
-| `POST/GET/PUT/DELETE /api/courses` | `adm_{create,read,update,delete}_course` |
-| `POST/GET/PUT/DELETE /api/subjects` | `adm_{create,read,update,delete}_subject` |
+| `GET /api/students/me` | any authenticated — resolves/links the caller's own student |
+| `POST/PUT/DELETE /api/courses` · `GET` | `adm_{create,update,delete}_course` · read: `adm_read_course` or `student_browse_class` |
+| `POST/PUT/DELETE /api/subjects` · `GET` | `adm_{create,update,delete}_subject` · read: `adm_read_subject` or `student_browse_class` |
 | `POST/GET/PUT/DELETE /api/classes` | `adm_{create,read,update,delete}_class` |
 | `POST /api/classes/{id}/open` | `adm_open_class` |
 | `POST /api/classes/{id}/close` | `adm_close_class` |
@@ -222,7 +227,11 @@ sequenceDiagram
 | `GET /api/enrollments?studentId=&classId=` | `student_read_enrollment` (own; `studentId` forced to token `sub`) · `adm_read_enrollment` (all) |
 | `GET /api/enrollments/{id}` | `student_read_enrollment` (own) · `adm_read_enrollment` |
 
-**Ownership:** for `student_*` enrollment rules, `enrollment.student_id` must equal the token `sub`.
+**Ownership — by action, never by coarse role.** The backend's vocabulary is only the fine-grained action rules; it **never references the composite `ADMIN`/`STUDENT`** (those stay a Keycloak composition detail). Ownership lives in a small guard: a caller holding the **admin variant of the action** (e.g. `adm_read_enrollment`) acts system-wide and skips the per-student check; a `student_*` caller is scoped to their own student. The guard resolves the caller's student by `keycloak_id`; a request with no authentication is treated as a trusted internal/system call, so consumers and the outbox relay are unaffected. This is more decoupled *and* safer than a coarse-role bypass — a `student_*` token with no linked record can never escalate.
+
+**Identity linking (first login).** Keycloak owns identities; the app owns the academic `Student` record; the two are linked by `student.keycloak_id`. The app does **not** provision Keycloak users — an admin creates the login in the Keycloak console. On a student's first authenticated call to `GET /api/students/me`, the app links an existing record by the token's `email` or materializes one from the token, so self-service works without a manual linking step. (The token `sub` is regenerated when the realm is re-imported, so the link is never hard-coded — it is resolved at runtime.)
+
+**CORS.** The SPA is served from a different origin (`http://localhost:3000`) than the API, so academic-service enables CORS for the configured origins (`app.cors.allowed-origins`).
 
 **Errors:** no/invalid token → `401`; missing rule or ownership fails → `403`; business errors (class closed, no seats, duplicate active) → `409`/`422` via the standardized error envelope; input validation → `400`. Events carry only the identifiers needed — no unnecessary personal data.
 
@@ -249,7 +258,9 @@ Local, via Docker Compose: `postgres` (two databases), `rabbitmq`, `keycloak`, `
 
 **Reproducing concurrency (local-only concern):** to show the seat race across processes, scale the API — `docker compose up --scale academic-service=2`. This requires the service to be **stateless** (state only in Postgres/RabbitMQ) and to **not bind a fixed host port** when scaled (instances auto-named `academic-service-1/-2`). Both instances' consumers compete on `enrollment.finalize.q`; PostgreSQL (optimistic lock) is the single arbiter. In the cloud an orchestrator handles this — it matters only for local reproduction.
 
-**No load balancer is required for the race:** it happens where the finalization consumers pull from the queue, and RabbitMQ already distributes messages across competing consumers on both instances — the HTTP path may even hit a single instance. A gateway/load balancer (e.g. Traefik, which auto-discovers scaled Compose services) is optional polish for the HTTP path (one stable URL, requests spread) — realistic, not required.
+**A minimal gateway gives the browser one stable URL.** The race itself needs no load balancer — it is contended on `enrollment.finalize.q`, where RabbitMQ distributes across the competing consumers on every instance (the HTTP path may even hit a single instance). But because `academic-service` binds no host port (so it can scale), a small nginx reverse proxy — `academic-gateway` — publishes `:8081` and forwards to the instances via Docker DNS, giving the browser a single API URL while the service scales behind it. A full API gateway (e.g. Traefik) remains optional polish.
+
+**Service wiring & config.** App services reach the infra by Compose hostname (`postgres`, `rabbitmq`, `keycloak`); datastore and broker credentials come from env (default `app`/`app`). The SPA image is built with the browser-facing defaults (`localhost:8081` API via the gateway, `localhost:8080` Keycloak). JWTs are validated by **`jwk-set-uri`, not `issuer-uri`**: the browser obtains tokens from `localhost:8080` (so `iss=localhost`) while the backend fetches JWKS from `keycloak:8080` internally — validating by signature avoids the two-hostname issuer mismatch. A Flyway **seed** (demo course/subjects/classes — including a one-seat class for the race — and a few students) makes the admin side testable on first `up`.
 
 ## Architecture Decisions
 
@@ -260,7 +271,11 @@ Local, via Docker Compose: `postgres` (two databases), `rabbitmq`, `keycloak`, `
 - Per-service databases in one PostgreSQL instance.
 - Additive event versioning; no schema registry.
 - OpenAPI as a mandatory backend build output.
-- Keycloak IdP; roles ADMIN / STUDENT.
+- Keycloak IdP; composite roles ADMIN / STUDENT expand into fine-grained action rules — the backend authorizes on those rules and never references the coarse roles.
+- Identity vs. record: Keycloak owns identity; the app owns the `Student` record, linked by `keycloak_id` and resolved just-in-time on first login (the app does not provision Keycloak users).
+- Ownership enforced in code by the admin *action* rule (not a coarse-role bypass); no-auth calls treated as trusted system calls.
+- The outbox carries the request's trace context so the trace crosses the async publish boundary.
+- A minimal nginx gateway (`academic-gateway`) fronts the port-less, scalable `academic-service` for a stable HTTP entry.
 
 ## Testing
 

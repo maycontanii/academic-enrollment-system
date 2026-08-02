@@ -15,6 +15,8 @@ import com.enrollment.academic.shared.outbox.OutboxWriter;
 import com.enrollment.academic.shared.error.BusinessException;
 import com.enrollment.academic.shared.error.ConflictException;
 import com.enrollment.academic.shared.error.NotFoundException;
+import com.enrollment.academic.shared.security.AccessGuard;
+import com.enrollment.academic.shared.security.Authorities;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -34,19 +36,23 @@ public class EnrollmentService {
     private final StudentRepository students;
     private final SchoolClassRepository classes;
     private final OutboxWriter outboxWriter;
+    private final AccessGuard accessGuard;
 
     public EnrollmentService(EnrollmentRepository enrollments,
                              StudentRepository students,
                              SchoolClassRepository classes,
-                             OutboxWriter outboxWriter) {
+                             OutboxWriter outboxWriter,
+                             AccessGuard accessGuard) {
         this.enrollments = enrollments;
         this.students = students;
         this.classes = classes;
         this.outboxWriter = outboxWriter;
+        this.accessGuard = accessGuard;
     }
 
     @Transactional
     public EnrollmentResponse create(EnrollmentRequest request) {
+        accessGuard.requireOwnStudent(request.studentId(), Authorities.ADM_CREATE_ENROLLMENT);
         if (!students.existsById(request.studentId())) {
             throw new NotFoundException(ErrorCodes.STUDENT_NOT_FOUND, "Student not found");
         }
@@ -68,6 +74,7 @@ public class EnrollmentService {
     @Transactional
     public EnrollmentResponse confirm(UUID id) {
         Enrollment enrollment = find(id);
+        accessGuard.requireOwnStudent(enrollment.getStudentId(), Authorities.ADM_CONFIRM_ENROLLMENT);
         if (!enrollment.isPending()) {
             throw new BusinessException(ErrorCodes.ENROLLMENT_NOT_PENDING, "Only a pending enrollment can be confirmed");
         }
@@ -80,6 +87,7 @@ public class EnrollmentService {
     @Transactional
     public EnrollmentResponse cancel(UUID id) {
         Enrollment enrollment = find(id);
+        accessGuard.requireOwnStudent(enrollment.getStudentId(), Authorities.ADM_CANCEL_ENROLLMENT);
         if (!enrollment.isActive()) {
             throw new BusinessException(ErrorCodes.ENROLLMENT_NOT_CANCELLABLE, "Enrollment cannot be cancelled");
         }
@@ -96,12 +104,15 @@ public class EnrollmentService {
 
     @Transactional(readOnly = true)
     public Page<EnrollmentResponse> search(UUID studentId, UUID classId, EnrollmentStatus status, Pageable pageable) {
-        return enrollments.search(studentId, classId, status, pageable).map(EnrollmentResponse::from);
+        UUID effectiveStudentId = accessGuard.effectiveStudentFilter(studentId, Authorities.ADM_READ_ENROLLMENT);
+        return enrollments.search(effectiveStudentId, classId, status, pageable).map(EnrollmentResponse::from);
     }
 
     @Transactional(readOnly = true)
     public EnrollmentResponse get(UUID id) {
-        return EnrollmentResponse.from(find(id));
+        Enrollment enrollment = find(id);
+        accessGuard.requireOwnStudent(enrollment.getStudentId(), Authorities.ADM_READ_ENROLLMENT);
+        return EnrollmentResponse.from(enrollment);
     }
 
     private Enrollment find(UUID id) {

@@ -28,6 +28,10 @@ public class Student {
     @Column
     private String document;
 
+    /** Link to the Keycloak identity (its {@code sub}), for ownership checks. */
+    @Column(name = "keycloak_id", unique = true)
+    private String keycloakId;
+
     public Student(String name, String email, String document) {
         this.name = name;
         this.email = email;

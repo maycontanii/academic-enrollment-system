@@ -15,9 +15,21 @@ spring:
   flyway:
     enabled: true
   rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:app}
+    password: ${RABBITMQ_PASSWORD:app}
+    template:
+      observation-enabled: true           # inject trace context into published messages
     listener:
       simple:
+        observation-enabled: true         # continue the trace when consuming
         default-requeue-rejected: false   # a failing message is dead-lettered, not requeued forever
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${KEYCLOAK_JWK_URI:http://localhost:8080/realms/academic-enrollment/protocol/openid-connect/certs}
 
 management:
   endpoints:
@@ -28,3 +40,6 @@ management:
     health:
       probes:
         enabled: true
+  tracing:
+    sampling:
+      probability: 1.0                     # trace every request in this demo

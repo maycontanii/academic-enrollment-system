@@ -111,7 +111,8 @@ Quality outcomes, at the business level.
 
 ## Glossary
 
-- **Student** — a person who can be enrolled and who self-enrolls in classes.
+- **Student** — a person who can be enrolled and who self-enrolls in classes; an academic record kept by the institution.
+- **Account** — a person's login used to sign in, distinct from their Student record. A student can self-serve only once their account is linked to their student record; that link is established the first time they sign in.
 - **Course** — a program of study, composed of subjects.
 - **Subject** — a discipline that can be offered as a class.
 - **Class** — a specific offering of a subject, with a seat limit and an open/closed state, into which students enroll.

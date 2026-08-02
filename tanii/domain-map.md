@@ -29,6 +29,7 @@ Enrollment and Catalog share one department — a seat is taken against a class 
 - **Frontend → Academic Enrollment** — asks directly (synchronous).
 - **Academic Enrollment → Notifications & Audit** — announces enrollment events; the other listens. One-way: a new listener (e.g. Reporting) can be added later without touching the announcer.
 - **Everyone → Identity** — just follows the building's ID check.
+- **Student ↔ Identity `User`** — a Student (academic record) references an Identity `User` by external id; Identity stays the source of truth for accounts and roles. The link is established the first time that user signs in — Academic Enrollment does not create accounts.
 
 ```mermaid
 flowchart LR
