@@ -1,5 +1,7 @@
 package com.enrollment.academic.enrollment;
 
+import com.enrollment.academic.AbstractIntegrationTest;
+
 import com.enrollment.academic.catalog.domain.ClassStatus;
 import com.enrollment.academic.catalog.domain.Course;
 import com.enrollment.academic.catalog.domain.SchoolClass;
@@ -16,10 +18,6 @@ import com.enrollment.academic.enrollment.repository.EnrollmentRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
-import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -33,12 +31,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * The optimistic lock on the seat counter must let through exactly the seat limit — no oversell.
  */
 @SpringBootTest
-@Testcontainers
-class SeatRaceConcurrencyTest {
-
-    @Container
-    @ServiceConnection
-    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine");
+class SeatRaceConcurrencyTest extends AbstractIntegrationTest {
 
     @Autowired CourseRepository courses;
     @Autowired SubjectRepository subjects;
