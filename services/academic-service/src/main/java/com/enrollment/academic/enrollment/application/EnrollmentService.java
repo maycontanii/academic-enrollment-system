@@ -58,8 +58,10 @@ public class EnrollmentService {
         if (enrollments.existsByStudentIdAndClassIdAndStatusIn(request.studentId(), request.classId(), ACTIVE)) {
             throw new ConflictException(ErrorCodes.ENROLLMENT_DUPLICATE, "Student already has an active enrollment in this class");
         }
-        Enrollment enrollment = new Enrollment(request.studentId(), request.classId());
-        return EnrollmentResponse.from(enrollments.save(enrollment));
+        Enrollment enrollment = enrollments.save(new Enrollment(request.studentId(), request.classId()));
+        outboxWriter.write(EnrollmentOutbox.AGGREGATE, EnrollmentOutbox.CREATED,
+                EnrollmentOutbox.EnrollmentEvent.of(enrollment));
+        return EnrollmentResponse.from(enrollment);
     }
 
     /** Accept-then-finalize: move to PROCESSING and enqueue a finalize command via the outbox. */
@@ -87,6 +89,8 @@ public class EnrollmentService {
             clazz.releaseSeat();
         }
         enrollment.cancel();
+        outboxWriter.write(EnrollmentOutbox.AGGREGATE, EnrollmentOutbox.CANCELLED,
+                EnrollmentOutbox.EnrollmentEvent.of(enrollment));
         return EnrollmentResponse.from(enrollment);
     }
 
