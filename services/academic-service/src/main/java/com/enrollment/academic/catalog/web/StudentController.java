@@ -12,6 +12,8 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Collection;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -24,10 +26,26 @@ public class StudentController {
         this.service = service;
     }
 
-    /** The caller's own student profile, resolved from the JWT — any authenticated user may read it. */
+    /**
+     * The caller's own student profile, resolved from the JWT. On a student's first login this links
+     * an existing record by email or materializes one from the token (Keycloak stays the identity
+     * source of truth); admins without a linked record get a 404.
+     */
     @GetMapping("/me")
     public StudentResponse me(@AuthenticationPrincipal Jwt jwt) {
-        return service.getByKeycloakId(jwt.getSubject());
+        String name = jwt.getClaimAsString("name");
+        if (name == null) {
+            name = jwt.getClaimAsString("preferred_username");
+        }
+        return service.resolveMe(jwt.getSubject(), jwt.getClaimAsString("email"), name, hasRealmRole(jwt, "STUDENT"));
+    }
+
+    private boolean hasRealmRole(Jwt jwt, String role) {
+        Object realmAccess = jwt.getClaim("realm_access");
+        if (realmAccess instanceof Map<?, ?> m && m.get("roles") instanceof Collection<?> roles) {
+            return roles.stream().map(Object::toString).anyMatch(role::equals);
+        }
+        return false;
     }
 
     @PostMapping

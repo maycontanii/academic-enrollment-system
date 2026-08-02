@@ -65,17 +65,39 @@ class AuthorizationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void meResolvesTheLinkedStudent() throws Exception {
+    void meResolvesTheAlreadyLinkedStudent() throws Exception {
         UUID anaId = adminCreate("/api/students", "{\"name\":\"Ana\",\"email\":\"ana@x.com\"}");
         link(anaId, "sub-ana");
 
-        mvc.perform(get("/api/students/me").with(student("sub-ana", "student_read_enrollment")))
+        mvc.perform(get("/api/students/me").with(studentToken("sub-ana", "ana@x.com")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(anaId.toString()))
-                .andExpect(jsonPath("$.email").value("ana@x.com"));
+                .andExpect(jsonPath("$.linked").value(true));
+    }
 
-        // an account with no linked student -> 404 envelope
-        mvc.perform(get("/api/students/me").with(student("sub-nobody", "student_read_enrollment")))
+    @Test
+    void meLinksAnExistingStudentByEmailOnFirstLogin() throws Exception {
+        UUID anaId = adminCreate("/api/students", "{\"name\":\"Ana\",\"email\":\"ana@x.com\"}");
+
+        // First login: not linked yet, but matched by the token's email and linked.
+        mvc.perform(get("/api/students/me").with(studentToken("sub-ana", "ana@x.com")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(anaId.toString()))
+                .andExpect(jsonPath("$.linked").value(true));
+    }
+
+    @Test
+    void meMaterializesAStudentFromTheTokenWhenNoneExists() throws Exception {
+        mvc.perform(get("/api/students/me").with(studentToken("sub-new", "new@x.com")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.email").value("new@x.com"))
+                .andExpect(jsonPath("$.linked").value(true));
+    }
+
+    @Test
+    void meIsNotFoundForANonStudentWithoutALink() throws Exception {
+        // A caller without the STUDENT role is never auto-provisioned.
+        mvc.perform(get("/api/students/me").with(student("sub-admin", "adm_read_student")))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.error.code").value("student.not_found"));
     }
@@ -127,6 +149,14 @@ class AuthorizationTest extends AbstractIntegrationTest {
         List<GrantedAuthority> granted = java.util.Arrays.stream(authorities)
                 .map(SimpleGrantedAuthority::new).map(a -> (GrantedAuthority) a).toList();
         return jwt().jwt(j -> j.subject(subject)).authorities(granted);
+    }
+
+    /** A realistic student token: subject + email claim + the STUDENT realm role (drives JIT linking). */
+    private static RequestPostProcessor studentToken(String subject, String email) {
+        return jwt().jwt(j -> j.subject(subject)
+                .claim("email", email)
+                .claim("name", email)
+                .claim("realm_access", java.util.Map.of("roles", java.util.List.of("STUDENT"))));
     }
 
     private void link(UUID studentId, String keycloakSubject) {

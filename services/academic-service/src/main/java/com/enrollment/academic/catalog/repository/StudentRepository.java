@@ -13,4 +13,6 @@ public interface StudentRepository extends JpaRepository<Student, UUID> {
     boolean existsByEmailAndIdNot(String email, UUID id);
 
     Optional<Student> findByKeycloakId(String keycloakId);
+
+    Optional<Student> findByEmail(String email);
 }

@@ -14,6 +14,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -56,12 +57,25 @@ public class StudentService {
         return StudentResponse.from(find(id));
     }
 
-    /** The student linked to the given Keycloak identity — lets the caller resolve "who am I". */
-    @Transactional(readOnly = true)
-    public StudentResponse getByKeycloakId(String keycloakId) {
-        return repository.findByKeycloakId(keycloakId)
-                .map(StudentResponse::from)
-                .orElseThrow(() -> new NotFoundException(ErrorCodes.STUDENT_NOT_FOUND, "No student is linked to this account"));
+    /**
+     * Resolves "who am I" for a logged-in user, linking on first login (Keycloak owns identity; the
+     * app owns the academic record). If already linked, returns it. Otherwise, for a student, links an
+     * existing record by email or materializes one from the verified token. Non-students that aren't
+     * linked get a 404 — we never auto-create a student for an admin.
+     */
+    @Transactional
+    public StudentResponse resolveMe(String keycloakId, String email, String name, boolean canProvision) {
+        Optional<Student> linked = repository.findByKeycloakId(keycloakId);
+        if (linked.isPresent()) {
+            return StudentResponse.from(linked.get());
+        }
+        if (!canProvision || email == null) {
+            throw new NotFoundException(ErrorCodes.STUDENT_NOT_FOUND, "No student is linked to this account");
+        }
+        Student student = repository.findByEmail(email)
+                .orElseGet(() -> new Student(name != null ? name : email, email, null));
+        student.setKeycloakId(keycloakId);
+        return StudentResponse.from(repository.save(student));
     }
 
     @Transactional
