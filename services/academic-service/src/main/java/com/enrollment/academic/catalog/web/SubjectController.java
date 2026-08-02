@@ -36,13 +36,13 @@ public class SubjectController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAuthority('adm_read_subject')")
+    @PreAuthorize("hasAnyAuthority('adm_read_subject', 'student_browse_class')")
     public Page<SubjectResponse> list(Pageable pageable) {
         return service.list(pageable);
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('adm_read_subject')")
+    @PreAuthorize("hasAnyAuthority('adm_read_subject', 'student_browse_class')")
     public SubjectResponse get(@PathVariable UUID id) {
         return service.get(id);
     }

@@ -56,6 +56,14 @@ public class StudentService {
         return StudentResponse.from(find(id));
     }
 
+    /** The student linked to the given Keycloak identity — lets the caller resolve "who am I". */
+    @Transactional(readOnly = true)
+    public StudentResponse getByKeycloakId(String keycloakId) {
+        return repository.findByKeycloakId(keycloakId)
+                .map(StudentResponse::from)
+                .orElseThrow(() -> new NotFoundException(ErrorCodes.STUDENT_NOT_FOUND, "No student is linked to this account"));
+    }
+
     @Transactional
     public void delete(UUID id) {
         repository.delete(find(id));

@@ -19,6 +19,7 @@ import java.util.UUID;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
@@ -61,6 +62,22 @@ class AuthorizationTest extends AbstractIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"Ana\",\"email\":\"ana@x.com\"}"))
                 .andExpect(status().isCreated());
+    }
+
+    @Test
+    void meResolvesTheLinkedStudent() throws Exception {
+        UUID anaId = adminCreate("/api/students", "{\"name\":\"Ana\",\"email\":\"ana@x.com\"}");
+        link(anaId, "sub-ana");
+
+        mvc.perform(get("/api/students/me").with(student("sub-ana", "student_read_enrollment")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(anaId.toString()))
+                .andExpect(jsonPath("$.email").value("ana@x.com"));
+
+        // an account with no linked student -> 404 envelope
+        mvc.perform(get("/api/students/me").with(student("sub-nobody", "student_read_enrollment")))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error.code").value("student.not_found"));
     }
 
     @Test

@@ -36,13 +36,13 @@ public class CourseController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAuthority('adm_read_course')")
+    @PreAuthorize("hasAnyAuthority('adm_read_course', 'student_browse_class')")
     public Page<CourseResponse> list(Pageable pageable) {
         return service.list(pageable);
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('adm_read_course')")
+    @PreAuthorize("hasAnyAuthority('adm_read_course', 'student_browse_class')")
     public CourseResponse get(@PathVariable UUID id) {
         return service.get(id);
     }
