@@ -14,6 +14,8 @@ export interface Student {
   name: string
   email: string
   document?: string
+  /** Whether this student is tied to a Keycloak login (self-service enabled). */
+  linked: boolean
 }
 
 export interface Course {

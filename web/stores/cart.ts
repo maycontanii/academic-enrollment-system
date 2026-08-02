@@ -15,6 +15,9 @@ export const useCartStore = defineStore('cart', {
   },
   actions: {
     async refresh() {
+      // Ensure the student is linked to their Keycloak identity (JIT on first /me) before any
+      // enrollment call, which the backend scopes to the caller's own student.
+      await useMe().load()
       const page = await useApi().get<Page<Enrollment>>('/api/enrollments', { status: 'PENDING', size: 100 })
       this.items = page.content
       this.loaded = true

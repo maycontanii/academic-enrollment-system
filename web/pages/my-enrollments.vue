@@ -16,6 +16,8 @@ const anyProcessing = computed(() => items.value.some((e) => e.status === 'PROCE
 async function load(showSpinner = false) {
   if (showSpinner) loading.value = true
   try {
+    // Link the student (JIT on first /me) before the ownership-scoped enrollment query.
+    await useMe().load()
     const page = await api.get<Page<Enrollment>>('/api/enrollments', { size: 200 })
     items.value = page.content.filter((e) => e.status !== 'CANCELLED')
   } catch (e) {

@@ -2,6 +2,7 @@
 import type { ApiError, Page, Student } from '~/types/models'
 
 const api = useApi()
+const kc = useKeycloakLinks()
 const items = ref<Student[]>([])
 const loading = ref(true)
 const error = ref<ApiError | null>(null)
@@ -11,6 +12,7 @@ const headers = [
   { title: 'Name', key: 'name' },
   { title: 'Email', key: 'email' },
   { title: 'Document', key: 'document' },
+  { title: 'Login', key: 'login', sortable: false, width: 220 },
   { title: '', key: 'actions', sortable: false, align: 'end' as const, width: 110 },
 ]
 
@@ -69,6 +71,20 @@ onMounted(load)
     <v-card>
       <v-data-table :headers="headers" :items="filtered" :loading="loading" items-per-page="10" no-data-text="No students yet">
         <template #[`item.document`]="{ item }">{{ item.document || '—' }}</template>
+        <template #[`item.login`]="{ item }">
+          <v-chip v-if="item.linked" color="success" size="small" label variant="tonal" prepend-icon="mdi-check">
+            Linked
+          </v-chip>
+          <div v-else class="d-flex align-center ga-2">
+            <v-chip color="grey" size="small" label variant="tonal">Not linked</v-chip>
+            <v-btn size="x-small" variant="tonal" color="primary" :href="kc.addUser" target="_blank" prepend-icon="mdi-account-plus">
+              Create login
+              <v-tooltip activator="parent" location="top">
+                Opens Keycloak to create this login (use email {{ item.email }}). It links automatically on the student's first sign-in.
+              </v-tooltip>
+            </v-btn>
+          </div>
+        </template>
         <template #[`item.actions`]="{ item }">
           <v-btn icon="mdi-pencil" variant="text" size="small" :to="`/admin/students/${item.id}`" />
           <v-btn icon="mdi-delete" variant="text" size="small" color="error" @click="remove(item)" />

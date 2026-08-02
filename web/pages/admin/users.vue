@@ -1,6 +1,5 @@
 <script setup lang="ts">
-const cfg = useRuntimeConfig().public
-const consoleUrl = `${cfg.keycloakUrl}/admin/${cfg.keycloakRealm}/console/`
+const consoleUrl = useKeycloakLinks().users
 </script>
 
 <template>
