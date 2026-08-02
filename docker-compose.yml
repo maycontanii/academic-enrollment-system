@@ -121,5 +121,81 @@ services:
       - academic-gateway
       - keycloak
 
+  # --- Optional dashboards (start with a profile; the core stack does not need them) ---
+  #   docker compose --profile observability --profile business up
+  # observability: metrics (Prometheus + Grafana) and logs (Loki + Promtail).
+  # business: Metabase over academicdb for business metrics.
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    profiles: ["observability"]
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+
+  loki:
+    image: grafana/loki:3.1.1
+    profiles: ["observability"]
+    command: ["-config.file=/etc/loki/local-config.yaml"]
+    volumes:
+      - loki-data:/loki
+
+  promtail:
+    image: grafana/promtail:3.1.1
+    profiles: ["observability"]
+    command: ["-config.file=/etc/promtail/config.yml"]
+    volumes:
+      - ./infra/promtail/promtail.yml:/etc/promtail/config.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - loki
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    profiles: ["observability"]
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "3001:3000"
+    depends_on:
+      - prometheus
+      - loki
+
+  metabase:
+    image: metabase/metabase:v0.50.21
+    profiles: ["business"]
+    environment:
+      MB_DB_FILE: /metabase-data/metabase.db
+    volumes:
+      - metabase-data:/metabase-data
+    ports:
+      - "3002:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # One-shot: creates the admin, connects academicdb, and builds a starter dashboard, then exits.
+  metabase-provision:
+    image: alpine:3.20
+    profiles: ["business"]
+    entrypoint: ["sh", "-c", "apk add --no-cache curl jq >/dev/null && sh /provision.sh"]
+    volumes:
+      - ./infra/metabase/provision.sh:/provision.sh:ro
+    depends_on:
+      - metabase
+    restart: "no"
+
 volumes:
   pgdata:
+  prometheus-data:
+  grafana-data:
+  loki-data:
+  metabase-data:
