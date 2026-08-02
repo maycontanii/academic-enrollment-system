@@ -24,22 +24,19 @@ Student: 14 Browse & Select · 15 Cart · 16 Checkout · 17 My Enrollments.
 
 ## Screens
 
-### Screen 1 — Login
+### Screen 1 — Login (Keycloak-hosted)
+
+Login is delegated to Keycloak via OIDC (redirect, PKCE) — the app renders no credential form of its own. An unauthenticated visitor is sent to Keycloak's login page and returns authenticated.
 
 ```
 +------------------------------------------+
-|           Academic Enrollment            |
-|                                          |
-|        ( Username / email )*             |
-|        ( Password )*                     |
-|                                          |
-|               [ Sign in ]                |
-|        > Invalid credentials             |
+|        (redirect to Keycloak login)      |
+|        ...Keycloak username/password...   |
 +------------------------------------------+
 ```
 
-- Actions: [Sign in] → Administrator → Screen 2; Student → Screen 14.
-- States: Loading "Signing in…"; Error "Invalid credentials" / "Account has no access".
+- Actions: after sign-in the app lands by role → Administrator → Screen 2; Student → Screen 14.
+- States: while the OIDC redirect resolves, a brief loading state; a signed-in account with no app role stays unauthorized.
 - Navigation: entry point.
 
 ### Screen 2 — Admin Home
@@ -73,15 +70,15 @@ Student: 14 Browse & Select · 15 Cart · 16 Checkout · 17 My Enrollments.
 | Students                [ + New student ]|
 | ( 🔍 name or email ..................... )|
 |                                          |
-|  | Name       | Email        | Document |  |
+|  | Name       | Email       | Login      |
 |  --------------------------------------  |
-|  | Ana Silva  | ana@x.com    | 123 [✏][🗑]|
-|  | Bruno Reis | bruno@x.com  | 456 [✏][🗑]|
+|  | Ana Silva  | ana@x.com   | Linked  [✏][🗑]
+|  | Bruno Reis | bruno@x.com | Not linked [Create login] [✏][🗑]
 |                                 ◀ 1 2 ▶  |
 +------------------------------------------+
 ```
 
-- Actions: [+ New] → Screen 4; [✏] → Screen 4 (edit); [🗑] → delete → stays.
+- Actions: [+ New] → Screen 4; [✏] → Screen 4 (edit); [🗑] → delete → stays. The **Login** column shows whether the student is tied to a Keycloak account; when not, [Create login] opens the Keycloak console to add the user (it links automatically on the student's first sign-in — the app does not provision accounts).
 - States: Empty "No students yet"; Loading; Error "Could not load students"; paging when many.
 - Navigation: from Screen 2; to Screen 4.
 
@@ -211,14 +208,13 @@ Student: 14 Browse & Select · 15 Cart · 16 Checkout · 17 My Enrollments.
 |  Subject*     [ Algorithms        ▾ ]     |
 |  Label*       ( 2026.1 - A ......... )    |
 |  Seat limit*  ( 30 )                       |
-|  Status*      [ Closed ▾ ]  (Open/Closed) |
 |                                          |
 |           [ Save ]    [ Cancel ]         |
 |  > Seat limit must be greater than zero   |
 +------------------------------------------+
 ```
 
-- Actions: [Save]/[Cancel] → Screen 9.
+- Actions: [Save]/[Cancel] → Screen 9. A new class starts **Closed**; open/close is done from the list (Screen 9), not here.
 - States: Error "Seat limit must be greater than zero" / "Subject is required".
 
 ### Screen 11 — Enrollments by Class
@@ -268,17 +264,19 @@ Student: 14 Browse & Select · 15 Cart · 16 Checkout · 17 My Enrollments.
 +------------------------------------------+
 | Academic Enrollment       admin ▾  [Out] |
 +------------------------------------------+
-| Users & access             [ + Add user ]|
-| ( 🔍 search ........................... )|
-|  | User        | Role          | Status ||
-|  --------------------------------------  |
-|  | ana@x.com   | Student       | active [▾][x]
-|  | admin@x.com | Administrator | active [▾][x]
+| Users & access                           |
+|  Access is managed in Keycloak — this app |
+|  only reads roles from the token.         |
+|                                          |
+|        [ Open Keycloak console ]          |
+|                                          |
+|  Seeded demo users: admin (Administrator),|
+|  ana (Student).                           |
 +------------------------------------------+
 ```
 
-- Actions: [+ Add user] → form (username, role); [▾] change role; [x] deactivate.
-- States: Error "Could not update access".
+- Actions: [Open Keycloak console] → the Keycloak admin console (new tab), where users, passwords, and role assignments live. There is no custom user CRUD — account/role management is the identity provider's job (decided in the Technical Design).
+- States: informational only.
 - Navigation: from Screen 2.
 
 ### Screen 14 — Browse & Select
